@@ -9,6 +9,7 @@ interface Game {
   player_count: number;
   word_id: string;
   impostor_index: number;
+  starting_player: number | null;
 }
 
 const PlayerView = () => {
@@ -232,9 +233,19 @@ const PlayerView = () => {
     );
   }
 
+  const isStartingPlayer = game && playerIndex !== null && game.starting_player === playerIndex;
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
       <div className="text-center animate-scale-in">
+        {isStartingPlayer && (
+          <div className="mb-6 p-4 bg-primary/20 border border-primary/40 rounded-lg animate-pulse">
+            <p className="text-2xl font-bold text-primary">
+              🎯 Вы начинаете!
+            </p>
+          </div>
+        )}
+        
         <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
           {isImpostor ? "Твоя роль" : "Секретное слово"}
         </p>
