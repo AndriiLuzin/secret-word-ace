@@ -14,6 +14,7 @@ interface Game {
   impostor_index: number;
   status: string;
   views_count: number;
+  starting_player: number | null;
 }
 
 interface PlayerView {
@@ -81,10 +82,16 @@ const GameAdmin = () => {
 
           setWord(wordData?.word || null);
           setIsRevealed(true);
-          // Select random starting player (not impostor)
+          // Select random starting player (not impostor) and save to DB
           const validPlayers = Array.from({ length: gameData.player_count }, (_, i) => i)
             .filter(i => i !== gameData.impostor_index);
-          setStartingPlayer(validPlayers[Math.floor(Math.random() * validPlayers.length)]);
+          const selectedPlayer = validPlayers[Math.floor(Math.random() * validPlayers.length)];
+          setStartingPlayer(selectedPlayer);
+          // Save to database so players can see it
+          await supabase
+            .from("games")
+            .update({ starting_player: selectedPlayer })
+            .eq("id", gameData.id);
           playNotificationSound();
         }
       } else {
@@ -100,10 +107,15 @@ const GameAdmin = () => {
 
           setWord(wordData?.word || null);
           setIsRevealed(true);
-          // Select random starting player (not impostor)
+          // Select random starting player (not impostor) and save to DB
           const validPlayers = Array.from({ length: gameData.player_count }, (_, i) => i)
             .filter(i => i !== gameData.impostor_index);
-          setStartingPlayer(validPlayers[Math.floor(Math.random() * validPlayers.length)]);
+          const selectedPlayer = validPlayers[Math.floor(Math.random() * validPlayers.length)];
+          setStartingPlayer(selectedPlayer);
+          await supabase
+            .from("games")
+            .update({ starting_player: selectedPlayer })
+            .eq("id", gameData.id);
           playNotificationSound();
         }
       }
@@ -143,10 +155,15 @@ const GameAdmin = () => {
 
             setWord(wordData?.word || null);
             setIsRevealed(true);
-            // Select random starting player (not impostor)
+            // Select random starting player (not impostor) and save to DB
             const validPlayers = Array.from({ length: game.player_count }, (_, i) => i)
               .filter(i => i !== game.impostor_index);
-            setStartingPlayer(validPlayers[Math.floor(Math.random() * validPlayers.length)]);
+            const selectedPlayer = validPlayers[Math.floor(Math.random() * validPlayers.length)];
+            setStartingPlayer(selectedPlayer);
+            await supabase
+              .from("games")
+              .update({ starting_player: selectedPlayer })
+              .eq("id", game.id);
             playNotificationSound();
           }
         }
@@ -173,13 +190,14 @@ const GameAdmin = () => {
       // Delete old views
       await supabase.from("player_views").delete().eq("game_id", game.id);
 
-      // Update game
+      // Update game (reset starting_player)
       await supabase
         .from("games")
         .update({
           word_id: randomWord.id,
           impostor_index: newImpostorIndex,
           views_count: 0,
+          starting_player: null,
         })
         .eq("id", game.id);
 

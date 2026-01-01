@@ -36,6 +36,7 @@ export type Database = {
           id: string
           impostor_index: number | null
           player_count: number
+          starting_player: number | null
           status: string | null
           views_count: number | null
           word_id: string | null
@@ -46,6 +47,7 @@ export type Database = {
           id?: string
           impostor_index?: number | null
           player_count: number
+          starting_player?: number | null
           status?: string | null
           views_count?: number | null
           word_id?: string | null
@@ -56,6 +58,7 @@ export type Database = {
           id?: string
           impostor_index?: number | null
           player_count?: number
+          starting_player?: number | null
           status?: string | null
           views_count?: number | null
           word_id?: string | null
