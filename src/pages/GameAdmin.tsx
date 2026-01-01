@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { playNotificationSound } from "@/lib/audio";
 
 interface Game {
   id: string;
@@ -79,6 +80,7 @@ const GameAdmin = () => {
 
           setWord(wordData?.word || null);
           setIsRevealed(true);
+          playNotificationSound();
         }
       } else {
         setViews(viewsData || []);
@@ -93,6 +95,7 @@ const GameAdmin = () => {
 
           setWord(wordData?.word || null);
           setIsRevealed(true);
+          playNotificationSound();
         }
       }
 
@@ -131,6 +134,7 @@ const GameAdmin = () => {
 
             setWord(wordData?.word || null);
             setIsRevealed(true);
+            playNotificationSound();
           }
         }
       )
