@@ -192,24 +192,40 @@ const GameAdmin = () => {
   if (!game) return null;
 
   const allViewed = views.length >= game.player_count;
+  const adminIndex = game.player_count - 1;
+  const isAdminImpostor = game.impostor_index === adminIndex;
 
   // Show role screen when all viewed and revealed
-  if (allViewed && isRevealed && word) {
+  if (allViewed && isRevealed) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
         <div className="text-center animate-scale-in">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-            Секретное слово
+            {isAdminImpostor ? "Твоя роль" : "Секретное слово"}
           </p>
-          <h1 className="text-4xl font-bold text-foreground">{word}</h1>
+          <h1 className="text-4xl font-bold text-foreground">
+            {isAdminImpostor ? "САМОЗВАНЕЦ" : word}
+          </h1>
           <p className="text-muted-foreground text-sm mt-6">
-            Один из игроков — самозванец.
-            <br />
-            Он не знает это слово.
+            {isAdminImpostor ? (
+              <>
+                Ты не знаешь слово.
+                <br />
+                Притворяйся, что знаешь.
+              </>
+            ) : (
+              <>
+                Один из игроков — самозванец.
+                <br />
+                Он не знает это слово.
+              </>
+            )}
           </p>
-          <p className="text-xs text-muted-foreground mt-4">
-            Самозванец — игрок #{game.impostor_index + 1}
-          </p>
+          {!isAdminImpostor && (
+            <p className="text-xs text-muted-foreground mt-4">
+              Самозванец — игрок #{game.impostor_index + 1}
+            </p>
+          )}
 
           <Button
             onClick={() => setIsRevealed(false)}
