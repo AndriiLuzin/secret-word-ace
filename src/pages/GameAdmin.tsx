@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { playNotificationSound } from "@/lib/audio";
+import { Home } from "lucide-react";
 
 interface Game {
   id: string;
@@ -231,6 +232,14 @@ const GameAdmin = () => {
   if (allViewed && isRevealed) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/")}
+          className="absolute top-4 left-4"
+        >
+          <Home className="w-5 h-5" />
+        </Button>
         <div className="text-center animate-scale-in">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
             {isAdminImpostor ? "Твоя роль" : "Секретное слово"}
@@ -289,7 +298,15 @@ const GameAdmin = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4"
+      >
+        <Home className="w-5 h-5" />
+      </Button>
       <div className="w-full max-w-sm animate-fade-in">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">
