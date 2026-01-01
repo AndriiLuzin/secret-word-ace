@@ -4,12 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
-import { Home, Check, RotateCcw, Eye, EyeOff } from "lucide-react";
+import { Home, RotateCcw, Users } from "lucide-react";
 
 interface WhoAmIGame {
   id: string;
   code: string;
   player_count: number;
+  guesser_index: number;
   status: string;
 }
 
@@ -28,10 +29,10 @@ const WhoAmIGame = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const [game, setGame] = useState<WhoAmIGame | null>(null);
-  const [players, setPlayers] = useState<WhoAmIPlayer[]>([]);
+  const [guesserPlayer, setGuesserPlayer] = useState<WhoAmIPlayer | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showQR, setShowQR] = useState(false);
-  const [revealedPlayers, setRevealedPlayers] = useState<Set<number>>(new Set());
+  const [showQR, setShowQR] = useState(true);
+  const [viewedCount, setViewedCount] = useState(0);
 
   const fetchGame = async () => {
     if (!code) return;
@@ -50,8 +51,8 @@ const WhoAmIGame = () => {
 
     setGame(gameData);
 
-    // Fetch players with their characters
-    const { data: playersData } = await supabase
+    // Fetch guesser player with character
+    const { data: playerData } = await supabase
       .from("whoami_players")
       .select(`
         id,
@@ -64,16 +65,23 @@ const WhoAmIGame = () => {
         )
       `)
       .eq("game_id", gameData.id)
-      .order("player_index");
+      .eq("player_index", gameData.guesser_index)
+      .maybeSingle();
 
-    if (playersData) {
-      const formattedPlayers = playersData.map((p: any) => ({
-        ...p,
-        character: p.whoami_characters,
-      }));
-      setPlayers(formattedPlayers);
+    if (playerData) {
+      setGuesserPlayer({
+        ...playerData,
+        character: (playerData as any).whoami_characters,
+      });
     }
 
+    // Get view count
+    const { data: views } = await supabase
+      .from("whoami_player_views")
+      .select("player_index")
+      .eq("game_id", gameData.id);
+
+    setViewedCount(views?.length || 0);
     setLoading(false);
   };
 
@@ -81,53 +89,97 @@ const WhoAmIGame = () => {
     fetchGame();
   }, [code]);
 
-  const toggleReveal = (playerIndex: number) => {
-    setRevealedPlayers((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(playerIndex)) {
-        newSet.delete(playerIndex);
-      } else {
-        newSet.add(playerIndex);
-      }
-      return newSet;
-    });
-  };
-
-  const markGuessed = async (playerId: string, playerIndex: number) => {
-    await supabase
-      .from("whoami_players")
-      .update({ guessed: true })
-      .eq("id", playerId);
-
-    toast.success(`Игрок ${playerIndex + 1} угадал!`);
-    fetchGame();
-  };
-
-  const newGame = async () => {
+  // Listen for new players joining
+  useEffect(() => {
     if (!game) return;
 
-    // Get new random characters
+    const channel = supabase
+      .channel(`whoami-admin-${code}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "whoami_player_views",
+        },
+        async () => {
+          const { data: views } = await supabase
+            .from("whoami_player_views")
+            .select("player_index")
+            .eq("game_id", game.id);
+
+          setViewedCount(views?.length || 0);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [game, code]);
+
+  const newRound = async () => {
+    if (!game) return;
+
+    // Get new random character
     const { data: characters } = await supabase
       .from("whoami_characters")
       .select("id");
 
     if (!characters?.length) return;
 
-    const shuffledChars = [...characters].sort(() => Math.random() - 0.5);
+    // Pick new random guesser (different from current if possible)
+    let newGuesserIndex = Math.floor(Math.random() * game.player_count);
+    if (game.player_count > 1 && newGuesserIndex === game.guesser_index) {
+      newGuesserIndex = (newGuesserIndex + 1) % game.player_count;
+    }
 
-    // Update each player with new character
-    for (let i = 0; i < players.length; i++) {
+    const randomCharacter = characters[Math.floor(Math.random() * characters.length)];
+
+    // Delete old player views
+    await supabase
+      .from("whoami_player_views")
+      .delete()
+      .eq("game_id", game.id);
+
+    // Update or create guesser player
+    const { data: existingPlayer } = await supabase
+      .from("whoami_players")
+      .select("id")
+      .eq("game_id", game.id)
+      .eq("player_index", newGuesserIndex)
+      .maybeSingle();
+
+    if (existingPlayer) {
       await supabase
         .from("whoami_players")
         .update({
-          character_id: shuffledChars[i % shuffledChars.length].id,
+          character_id: randomCharacter.id,
           guessed: false,
         })
-        .eq("id", players[i].id);
+        .eq("id", existingPlayer.id);
+    } else {
+      await supabase
+        .from("whoami_players")
+        .insert({
+          game_id: game.id,
+          player_index: newGuesserIndex,
+          character_id: randomCharacter.id,
+          guessed: false,
+        });
     }
 
-    setRevealedPlayers(new Set());
-    toast.success("Новая игра началась!");
+    // Update game with new guesser
+    await supabase
+      .from("whoami_games")
+      .update({
+        guesser_index: newGuesserIndex,
+        status: "playing",
+      })
+      .eq("id", game.id);
+
+    setViewedCount(0);
+    toast.success(`Новый раунд! Теперь угадывает игрок #${newGuesserIndex + 1}`);
     fetchGame();
   };
 
@@ -141,8 +193,7 @@ const WhoAmIGame = () => {
 
   if (!game) return null;
 
-  const gameUrl = `${window.location.origin}/whoami/${code}`;
-  const allGuessed = players.every((p) => p.guessed);
+  const playerUrl = `${window.location.origin}/whoami/${code}/play`;
 
   return (
     <div className="min-h-screen flex flex-col items-center p-6 bg-background">
@@ -162,119 +213,64 @@ const WhoAmIGame = () => {
           <p className="text-sm text-muted-foreground">
             Код игры: <span className="font-mono font-bold">{code}</span>
           </p>
+          <div className="flex items-center justify-center gap-2 mt-2 text-muted-foreground">
+            <Users className="w-4 h-4" />
+            <span className="text-sm">
+              {viewedCount} / {game.player_count} игроков присоединилось
+            </span>
+          </div>
         </div>
 
-        {/* Instructions */}
-        <div className="bg-accent/50 rounded-xl p-4 mb-6">
-          <p className="text-sm text-center text-muted-foreground">
-            Покажи персонажа другим игрокам,
-            <br />
-            но не показывай владельцу!
+        {/* Current Guesser Info */}
+        <div className="bg-accent/50 rounded-xl p-6 mb-6 text-center">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+            Угадывает игрок
           </p>
-        </div>
-
-        {/* Players Grid */}
-        <div className="space-y-3 mb-6">
-          {players.map((player) => (
-            <div
-              key={player.id}
-              className={`p-4 border rounded-lg ${
-                player.guessed
-                  ? "border-green-500/50 bg-green-500/10"
-                  : "border-border"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center font-bold">
-                    {player.player_index + 1}
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">
-                      Игрок {player.player_index + 1}
-                    </p>
-                    {revealedPlayers.has(player.player_index) ? (
-                      <div>
-                        <p className="text-lg font-bold text-foreground">
-                          {player.character?.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {player.character?.category}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {player.guessed ? "Угадал!" : "Персонаж скрыт"}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => toggleReveal(player.player_index)}
-                  >
-                    {revealedPlayers.has(player.player_index) ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </Button>
-                  {!player.guessed && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => markGuessed(player.id, player.player_index)}
-                    >
-                      <Check className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* All Guessed Message */}
-        {allGuessed && (
-          <div className="text-center p-4 bg-green-500/20 rounded-xl mb-6">
-            <p className="text-lg font-bold text-green-600">
-              🎉 Все угадали!
+          <div className="w-16 h-16 rounded-full bg-foreground text-background flex items-center justify-center font-bold text-2xl mx-auto mb-3">
+            {game.guesser_index + 1}
+          </div>
+          <p className="text-lg font-bold text-foreground">
+            {guesserPlayer?.character?.name}
+          </p>
+          {guesserPlayer?.character?.category && (
+            <p className="text-sm text-muted-foreground">
+              {guesserPlayer.character.category}
             </p>
+          )}
+        </div>
+
+        {/* QR Code */}
+        {showQR && (
+          <div className="flex flex-col items-center p-6 border border-border rounded-lg mb-6">
+            <p className="text-sm text-muted-foreground mb-4">
+              Сканируйте чтобы присоединиться
+            </p>
+            <QRCodeSVG value={playerUrl} size={180} />
           </div>
         )}
 
-        {/* New Game Button */}
-        <Button onClick={newGame} className="w-full h-12 mb-4">
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Новая игра
-        </Button>
-
-        {/* QR Code Toggle */}
         <Button
           variant="ghost"
           onClick={() => setShowQR(!showQR)}
-          className="w-full text-muted-foreground"
+          className="w-full text-muted-foreground mb-4"
         >
-          {showQR ? "Скрыть QR-код" : "Показать QR-код для друзей"}
+          {showQR ? "Скрыть QR-код" : "Показать QR-код"}
         </Button>
 
-        {showQR && (
-          <div className="mt-4 flex flex-col items-center p-6 border border-border rounded-lg">
-            <QRCodeSVG value={gameUrl} size={160} />
-          </div>
-        )}
+        {/* New Round Button */}
+        <Button onClick={newRound} className="w-full h-12 mb-4">
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Угадал! Новый раунд
+        </Button>
 
         {/* Rules */}
-        <div className="mt-8 p-4 border border-border rounded-lg">
+        <div className="mt-4 p-4 border border-border rounded-lg">
           <h4 className="font-bold text-foreground mb-2">Правила:</h4>
           <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• Каждый игрок видит персонажей других</li>
-            <li>• Но не видит своего персонажа</li>
+            <li>• Один игрок видит "Кто я?"</li>
+            <li>• Остальные видят его персонажа</li>
             <li>• Задавай вопросы с ответами Да/Нет</li>
-            <li>• Угадай кто ты раньше других!</li>
+            <li>• Угадал — жми кнопку для нового раунда!</li>
           </ul>
         </div>
       </div>

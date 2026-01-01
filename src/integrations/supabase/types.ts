@@ -242,23 +242,50 @@ export type Database = {
         Row: {
           code: string
           created_at: string | null
+          guesser_index: number | null
           id: string
           player_count: number
           status: string | null
+          views_count: number | null
         }
         Insert: {
           code: string
           created_at?: string | null
+          guesser_index?: number | null
           id?: string
           player_count: number
           status?: string | null
+          views_count?: number | null
         }
         Update: {
           code?: string
           created_at?: string | null
+          guesser_index?: number | null
           id?: string
           player_count?: number
           status?: string | null
+          views_count?: number | null
+        }
+        Relationships: []
+      }
+      whoami_player_views: {
+        Row: {
+          game_id: string
+          id: string
+          player_index: number
+          viewed_at: string | null
+        }
+        Insert: {
+          game_id: string
+          id?: string
+          player_index: number
+          viewed_at?: string | null
+        }
+        Update: {
+          game_id?: string
+          id?: string
+          player_index?: number
+          viewed_at?: string | null
         }
         Relationships: []
       }

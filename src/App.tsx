@@ -14,6 +14,7 @@ import CrocodileCreate from "./pages/CrocodileCreate";
 import CrocodileGame from "./pages/CrocodileGame";
 import WhoAmICreate from "./pages/WhoAmICreate";
 import WhoAmIGame from "./pages/WhoAmIGame";
+import WhoAmIPlayer from "./pages/WhoAmIPlayer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,7 +36,8 @@ const App = () => (
           <Route path="/crocodile" element={<CrocodileCreate />} />
           <Route path="/crocodile/:code" element={<CrocodileGame />} />
           <Route path="/whoami" element={<WhoAmICreate />} />
-          <Route path="/whoami/:code" element={<WhoAmIGame />} />
+          <Route path="/whoami/:code/admin" element={<WhoAmIGame />} />
+          <Route path="/whoami/:code/play" element={<WhoAmIPlayer />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
