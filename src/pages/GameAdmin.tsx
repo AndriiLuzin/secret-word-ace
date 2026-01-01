@@ -26,6 +26,7 @@ const GameAdmin = () => {
   const [word, setWord] = useState<string | null>(null);
   const [views, setViews] = useState<PlayerView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRevealed, setIsRevealed] = useState(false);
 
   const gameUrl = `${window.location.origin}/play/${code}`;
 
@@ -55,7 +56,7 @@ const GameAdmin = () => {
 
       setViews(viewsData || []);
 
-      // Fetch word if all players have viewed
+      // Fetch word and auto-reveal if all players have viewed
       if (viewsData && viewsData.length >= gameData.player_count) {
         const { data: wordData } = await supabase
           .from("game_words")
@@ -64,6 +65,7 @@ const GameAdmin = () => {
           .single();
 
         setWord(wordData?.word || null);
+        setIsRevealed(true);
       }
 
       setIsLoading(false);
@@ -91,7 +93,7 @@ const GameAdmin = () => {
 
           setViews(viewsData || []);
 
-          // Check if all viewed
+          // Check if all viewed and auto-reveal
           if (viewsData && game && viewsData.length >= game.player_count) {
             const { data: wordData } = await supabase
               .from("game_words")
@@ -100,6 +102,7 @@ const GameAdmin = () => {
               .single();
 
             setWord(wordData?.word || null);
+            setIsRevealed(true);
           }
         }
       )
@@ -137,6 +140,7 @@ const GameAdmin = () => {
 
       setWord(null);
       setViews([]);
+      setIsRevealed(false);
       setGame({ ...game, word_id: randomWord.id, impostor_index: newImpostorIndex });
       
       toast.success("Новый раунд начат!");
@@ -156,6 +160,44 @@ const GameAdmin = () => {
   if (!game) return null;
 
   const allViewed = views.length >= game.player_count;
+
+  // Show role screen when all viewed and revealed
+  if (allViewed && isRevealed && word) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+        <div className="text-center animate-scale-in">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
+            Секретное слово
+          </p>
+          <h1 className="text-4xl font-bold text-foreground">{word}</h1>
+          <p className="text-muted-foreground text-sm mt-6">
+            Один из игроков — самозванец.
+            <br />
+            Он не знает это слово.
+          </p>
+          <p className="text-xs text-muted-foreground mt-4">
+            Самозванец — игрок #{game.impostor_index + 1}
+          </p>
+
+          <Button
+            onClick={() => setIsRevealed(false)}
+            variant="outline"
+            className="mt-12"
+          >
+            Скрыть
+          </Button>
+
+          <Button
+            onClick={startNewRound}
+            variant="outline"
+            className="w-full mt-4 h-12 font-bold uppercase tracking-wider"
+          >
+            Новый раунд
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
@@ -182,18 +224,6 @@ const GameAdmin = () => {
         <div className="text-center mb-8">
           <p className="text-xs text-muted-foreground break-all">{gameUrl}</p>
         </div>
-
-        {allViewed && word && (
-          <div className="text-center mb-8 animate-scale-in">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-              Твоя роль (Админ)
-            </p>
-            <p className="text-3xl font-bold text-foreground">{word}</p>
-            <p className="text-xs text-muted-foreground mt-4">
-              Ты — обычный игрок. Самозванец — игрок #{game.impostor_index + 1}
-            </p>
-          </div>
-        )}
 
         {!allViewed && (
           <div className="text-center mb-8">
