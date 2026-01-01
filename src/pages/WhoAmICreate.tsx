@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { Home } from "lucide-react";
 
 const WhoAmICreate = () => {
   const [playerCount, setPlayerCount] = useState<string>("");
@@ -29,7 +30,7 @@ const WhoAmICreate = () => {
     setIsCreating(true);
 
     try {
-      // Get random characters for all players
+      // Get random character for the guesser
       const { data: characters, error: charsError } = await supabase
         .from("whoami_characters")
         .select("id");
@@ -39,13 +40,16 @@ const WhoAmICreate = () => {
       }
 
       const code = generateCode();
+      const guesserIndex = Math.floor(Math.random() * count);
+      const randomCharacter = characters[Math.floor(Math.random() * characters.length)];
 
-      // Create game
+      // Create game with guesser
       const { data: game, error: gameError } = await supabase
         .from("whoami_games")
         .insert({
           code,
           player_count: count,
+          guesser_index: guesserIndex,
           status: "playing",
         })
         .select()
@@ -53,26 +57,19 @@ const WhoAmICreate = () => {
 
       if (gameError) throw gameError;
 
-      // Assign random characters to each player
-      const shuffledChars = [...characters].sort(() => Math.random() - 0.5);
-      const playerInserts = [];
-
-      for (let i = 0; i < count; i++) {
-        playerInserts.push({
+      // Create only the guesser player with character
+      const { error: playerError } = await supabase
+        .from("whoami_players")
+        .insert({
           game_id: game.id,
-          player_index: i,
-          character_id: shuffledChars[i % shuffledChars.length].id,
+          player_index: guesserIndex,
+          character_id: randomCharacter.id,
           guessed: false,
         });
-      }
 
-      const { error: playersError } = await supabase
-        .from("whoami_players")
-        .insert(playerInserts);
+      if (playerError) throw playerError;
 
-      if (playersError) throw playersError;
-
-      navigate(`/whoami/${code}`);
+      navigate(`/whoami/${code}/admin`);
     } catch (error) {
       console.error(error);
       toast.error("Ошибка создания игры");
@@ -82,7 +79,16 @@ const WhoAmICreate = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4"
+      >
+        <Home className="w-5 h-5" />
+      </Button>
+      
       <div className="w-full max-w-sm animate-fade-in">
         <h1 className="text-4xl font-bold tracking-tight text-foreground mb-2 text-center">
           КТО Я?
@@ -118,9 +124,9 @@ const WhoAmICreate = () => {
 
         <div className="mt-16 text-center">
           <p className="text-xs text-muted-foreground">
-            Каждый игрок получает персонажа,
+            Один игрок получит "Кто я?",
             <br />
-            которого видят все кроме него самого.
+            остальные увидят его персонажа.
           </p>
         </div>
       </div>
