@@ -39,11 +39,11 @@ const CrocodilePlayer = () => {
   const assignPlayer = useCallback(async (gameData: CrocodileGame) => {
     // Check existing views
     const { data: existingViews } = await supabase
-      .from("player_views")
+      .from("crocodile_players" as any)
       .select("player_index")
       .eq("game_id", gameData.id);
 
-    const usedIndices = existingViews?.map((v) => v.player_index) || [];
+    const usedIndices = (existingViews as any[])?.map((v) => v.player_index) || [];
 
     if (usedIndices.length >= gameData.player_count) {
       setError("Все места заняты");
@@ -68,7 +68,7 @@ const CrocodilePlayer = () => {
 
     // Register this player
     const { error: insertError } = await supabase
-      .from("player_views")
+      .from("crocodile_players" as any)
       .insert({
         game_id: gameData.id,
         player_index: availableIndex,
@@ -119,7 +119,7 @@ const CrocodilePlayer = () => {
         const idx = parseInt(existingIndex);
         // Verify this player still exists
         const { data: view } = await supabase
-          .from("player_views")
+          .from("crocodile_players" as any)
           .select("player_index")
           .eq("game_id", gameData.id)
           .eq("player_index", idx)
