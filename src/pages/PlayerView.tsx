@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Home } from "lucide-react";
 
 interface Game {
   id: string;
@@ -15,6 +16,7 @@ interface Game {
 const PlayerView = () => {
   const { code } = useParams<{ code: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [game, setGame] = useState<Game | null>(null);
   const [word, setWord] = useState<string | null>(null);
   const [isImpostor, setIsImpostor] = useState(false);
@@ -214,7 +216,15 @@ const PlayerView = () => {
 
   if (!isRevealed) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/")}
+          className="absolute top-4 left-4"
+        >
+          <Home className="w-5 h-5" />
+        </Button>
         <div className="text-center animate-fade-in">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
             Игрок #{playerIndex !== null ? playerIndex + 1 : "?"}
@@ -236,7 +246,15 @@ const PlayerView = () => {
   const isStartingPlayer = game && playerIndex !== null && game.starting_player === playerIndex;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4"
+      >
+        <Home className="w-5 h-5" />
+      </Button>
       <div className="text-center animate-scale-in">
         {isStartingPlayer && (
           <div className="mb-6 p-4 bg-primary/20 border border-primary/40 rounded-lg animate-pulse">
