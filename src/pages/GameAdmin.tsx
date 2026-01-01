@@ -186,11 +186,11 @@ const GameAdmin = () => {
         {allViewed && word && (
           <div className="text-center mb-8 animate-scale-in">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-              Секретное слово
+              Твоя роль (Админ)
             </p>
             <p className="text-3xl font-bold text-foreground">{word}</p>
             <p className="text-xs text-muted-foreground mt-4">
-              Самозванец — игрок #{game.impostor_index + 1}
+              Ты — обычный игрок. Самозванец — игрок #{game.impostor_index + 1}
             </p>
           </div>
         )}
