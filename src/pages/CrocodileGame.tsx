@@ -87,7 +87,7 @@ const CrocodileGame = () => {
 
   const fetchViews = async (gameId: string) => {
     const { data: viewsData } = await supabase
-      .from("player_views")
+      .from("crocodile_players" as any)
       .select("player_index")
       .eq("game_id", gameId);
 
@@ -97,7 +97,7 @@ const CrocodileGame = () => {
         playNotificationSound();
       }
       prevViewsCountRef.current = viewsData.length;
-      setViews(viewsData);
+      setViews(viewsData as unknown as PlayerView[]);
     }
   };
 
@@ -105,7 +105,7 @@ const CrocodileGame = () => {
     const adminIdx = playerCount - 1;
     
     const { data: existing } = await supabase
-      .from("player_views")
+      .from("crocodile_players" as any)
       .select("player_index")
       .eq("game_id", gameId)
       .eq("player_index", adminIdx)
@@ -113,7 +113,7 @@ const CrocodileGame = () => {
 
     if (!existing) {
       await supabase
-        .from("player_views")
+        .from("crocodile_players" as any)
         .insert({
           game_id: gameId,
           player_index: adminIdx,
