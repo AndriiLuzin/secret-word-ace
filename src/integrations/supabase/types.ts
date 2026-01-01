@@ -220,6 +220,87 @@ export type Database = {
           },
         ]
       }
+      whoami_characters: {
+        Row: {
+          category: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          category?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      whoami_games: {
+        Row: {
+          code: string
+          created_at: string | null
+          id: string
+          player_count: number
+          status: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          id?: string
+          player_count: number
+          status?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          id?: string
+          player_count?: number
+          status?: string | null
+        }
+        Relationships: []
+      }
+      whoami_players: {
+        Row: {
+          character_id: string | null
+          game_id: string
+          guessed: boolean | null
+          id: string
+          player_index: number
+        }
+        Insert: {
+          character_id?: string | null
+          game_id: string
+          guessed?: boolean | null
+          id?: string
+          player_index: number
+        }
+        Update: {
+          character_id?: string | null
+          game_id?: string
+          guessed?: boolean | null
+          id?: string
+          player_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whoami_players_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "whoami_characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whoami_players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "whoami_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

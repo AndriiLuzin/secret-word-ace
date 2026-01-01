@@ -12,6 +12,8 @@ import MafiaAdmin from "./pages/MafiaAdmin";
 import MafiaPlayer from "./pages/MafiaPlayer";
 import CrocodileCreate from "./pages/CrocodileCreate";
 import CrocodileGame from "./pages/CrocodileGame";
+import WhoAmICreate from "./pages/WhoAmICreate";
+import WhoAmIGame from "./pages/WhoAmIGame";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +34,8 @@ const App = () => (
           <Route path="/mafia-play/:code" element={<MafiaPlayer />} />
           <Route path="/crocodile" element={<CrocodileCreate />} />
           <Route path="/crocodile/:code" element={<CrocodileGame />} />
+          <Route path="/whoami" element={<WhoAmICreate />} />
+          <Route path="/whoami/:code" element={<WhoAmIGame />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

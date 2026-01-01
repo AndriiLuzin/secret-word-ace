@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Users, Skull, Hand } from "lucide-react";
+import { Users, Skull, Hand, HelpCircle } from "lucide-react";
 
 const games = [
   {
@@ -24,6 +24,14 @@ const games = [
     description: "Покажи слово без слов",
     icon: Hand,
     path: "/crocodile",
+    players: "2-20",
+  },
+  {
+    id: "whoami",
+    title: "Кто я?",
+    description: "Угадай своего персонажа",
+    icon: HelpCircle,
+    path: "/whoami",
     players: "2-20",
   },
 ];
