@@ -129,6 +129,35 @@ export type Database = {
           },
         ]
       }
+      crocodile_players: {
+        Row: {
+          game_id: string
+          id: string
+          player_index: number
+          viewed_at: string | null
+        }
+        Insert: {
+          game_id: string
+          id?: string
+          player_index: number
+          viewed_at?: string | null
+        }
+        Update: {
+          game_id?: string
+          id?: string
+          player_index?: number
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crocodile_players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "crocodile_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crocodile_words: {
         Row: {
           category: string | null
