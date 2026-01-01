@@ -38,7 +38,7 @@ const WhoAmIGame = () => {
   const [views, setViews] = useState<PlayerView[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRevealed, setIsRevealed] = useState(false);
-
+  const [showMyRole, setShowMyRole] = useState(false);
   const playerUrl = `${window.location.origin}/whoami/${code}/play`;
 
   const fetchGuesserCharacter = async (gameId: string, guesserIdx: number) => {
@@ -304,6 +304,58 @@ const WhoAmIGame = () => {
     );
   }
 
+  // Admin wants to see their role before all joined
+  if (showMyRole) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/")}
+          className="absolute top-4 left-4"
+        >
+          <Home className="w-5 h-5" />
+        </Button>
+        <div className="text-center animate-scale-in">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
+            {isAdminGuesser ? "Твоя задача" : `Персонаж игрока #${game.guesser_index + 1}`}
+          </p>
+          <h1 className="text-4xl font-bold text-foreground">
+            {isAdminGuesser ? "КТО Я?" : guesserPlayer?.character?.name}
+          </h1>
+          {!isAdminGuesser && guesserPlayer?.character?.category && (
+            <p className="text-muted-foreground text-sm mt-2">
+              {guesserPlayer.character.category}
+            </p>
+          )}
+          <p className="text-muted-foreground text-sm mt-6">
+            {isAdminGuesser ? (
+              <>
+                Ты не знаешь своего персонажа.
+                <br />
+                Задавай вопросы с ответами Да/Нет.
+              </>
+            ) : (
+              <>
+                Игрок #{game.guesser_index + 1} не знает кто он.
+                <br />
+                Помоги ему угадать, отвечая на вопросы.
+              </>
+            )}
+          </p>
+
+          <Button
+            onClick={() => setShowMyRole(false)}
+            variant="outline"
+            className="mt-12"
+          >
+            Скрыть
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
       <Button
@@ -323,6 +375,14 @@ const WhoAmIGame = () => {
             {views.length} / {game.player_count} игроков посмотрели
           </p>
         </div>
+
+        {/* Show Role Button */}
+        <Button
+          onClick={() => setShowMyRole(true)}
+          className="w-full h-14 text-lg font-bold uppercase tracking-wider mb-6"
+        >
+          Показать мою роль
+        </Button>
 
         <div className="bg-secondary p-6 flex items-center justify-center mb-6">
           <QRCodeSVG
