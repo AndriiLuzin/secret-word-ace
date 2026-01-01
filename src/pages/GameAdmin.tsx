@@ -262,11 +262,6 @@ const GameAdmin = () => {
               </>
             )}
           </p>
-          {!isAdminImpostor && (
-            <p className="text-xs text-muted-foreground mt-4">
-              Самозванец — игрок #{game.impostor_index + 1}
-            </p>
-          )}
 
           {startingPlayer !== null && (
             <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-lg">
