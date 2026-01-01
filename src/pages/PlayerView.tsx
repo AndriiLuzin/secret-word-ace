@@ -233,41 +233,33 @@ const PlayerView = () => {
   }
 
   return (
-    <div
-      className={`min-h-screen flex flex-col items-center justify-center p-6 transition-colors ${
-        isImpostor ? "bg-impostor" : "bg-background"
-      }`}
-    >
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
       <div className="text-center animate-scale-in">
-        {isImpostor ? (
-          <>
-            <p className="text-6xl mb-4">🕵️</p>
-            <h1 className="text-4xl font-bold text-primary-foreground mb-2">
-              САМОЗВАНЕЦ
-            </h1>
-            <p className="text-primary-foreground/70 text-sm">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
+          {isImpostor ? "Твоя роль" : "Секретное слово"}
+        </p>
+        <h1 className="text-4xl font-bold text-foreground">
+          {isImpostor ? "САМОЗВАНЕЦ" : word}
+        </h1>
+        <p className="text-muted-foreground text-sm mt-6">
+          {isImpostor ? (
+            <>
               Ты не знаешь слово.
               <br />
               Притворяйся, что знаешь.
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Секретное слово
-            </p>
-            <h1 className="text-4xl font-bold text-foreground">{word}</h1>
-            <p className="text-muted-foreground text-sm mt-6">
+            </>
+          ) : (
+            <>
               Один из игроков — самозванец.
               <br />
               Он не знает это слово.
-            </p>
-          </>
-        )}
+            </>
+          )}
+        </p>
 
         <Button
           onClick={() => setIsRevealed(false)}
-          variant={isImpostor ? "secondary" : "outline"}
+          variant="outline"
           className="mt-12"
         >
           Скрыть
