@@ -10,6 +10,8 @@ import PlayerView from "./pages/PlayerView";
 import MafiaCreate from "./pages/MafiaCreate";
 import MafiaAdmin from "./pages/MafiaAdmin";
 import MafiaPlayer from "./pages/MafiaPlayer";
+import CrocodileCreate from "./pages/CrocodileCreate";
+import CrocodileGame from "./pages/CrocodileGame";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const App = () => (
           <Route path="/mafia" element={<MafiaCreate />} />
           <Route path="/mafia/:code" element={<MafiaAdmin />} />
           <Route path="/mafia-play/:code" element={<MafiaPlayer />} />
+          <Route path="/crocodile" element={<CrocodileCreate />} />
+          <Route path="/crocodile/:code" element={<CrocodileGame />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
