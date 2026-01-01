@@ -31,6 +31,7 @@ const GameAdmin = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRevealed, setIsRevealed] = useState(false);
   const [startingPlayer, setStartingPlayer] = useState<number | null>(null);
+  const [showMyRole, setShowMyRole] = useState(false);
 
   const gameUrl = `${window.location.origin}/play/${code}`;
 
@@ -292,6 +293,53 @@ const GameAdmin = () => {
     );
   }
 
+  // Admin wants to see their role
+  if (showMyRole) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/")}
+          className="absolute top-4 left-4"
+        >
+          <Home className="w-5 h-5" />
+        </Button>
+        <div className="text-center animate-scale-in">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
+            {isAdminImpostor ? "Твоя роль" : "Секретное слово"}
+          </p>
+          <h1 className="text-4xl font-bold text-foreground">
+            {isAdminImpostor ? "САМОЗВАНЕЦ" : word}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-6">
+            {isAdminImpostor ? (
+              <>
+                Ты не знаешь слово.
+                <br />
+                Притворяйся, что знаешь.
+              </>
+            ) : (
+              <>
+                Один из игроков — самозванец.
+                <br />
+                Он не знает это слово.
+              </>
+            )}
+          </p>
+
+          <Button
+            onClick={() => setShowMyRole(false)}
+            variant="outline"
+            className="mt-12"
+          >
+            Скрыть
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
       <Button
@@ -311,6 +359,14 @@ const GameAdmin = () => {
             {views.length} / {game.player_count} игроков посмотрели
           </p>
         </div>
+
+        {/* Show Role Button */}
+        <Button
+          onClick={() => setShowMyRole(true)}
+          className="w-full h-14 text-lg font-bold uppercase tracking-wider mb-6"
+        >
+          Показать мою роль
+        </Button>
 
         <div className="bg-secondary p-6 flex items-center justify-center mb-6">
           <QRCodeSVG
