@@ -16,6 +16,9 @@ import CrocodilePlayer from "./pages/CrocodilePlayer";
 import WhoAmICreate from "./pages/WhoAmICreate";
 import WhoAmIGame from "./pages/WhoAmIGame";
 import WhoAmIPlayer from "./pages/WhoAmIPlayer";
+import CasinoCreate from "./pages/CasinoCreate";
+import CasinoGame from "./pages/CasinoGame";
+import CasinoPlayer from "./pages/CasinoPlayer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +43,9 @@ const App = () => (
           <Route path="/whoami" element={<WhoAmICreate />} />
           <Route path="/whoami/:code/admin" element={<WhoAmIGame />} />
           <Route path="/whoami/:code/play" element={<WhoAmIPlayer />} />
+          <Route path="/casino" element={<CasinoCreate />} />
+          <Route path="/casino/:code" element={<CasinoGame />} />
+          <Route path="/casino-play/:code" element={<CasinoPlayer />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

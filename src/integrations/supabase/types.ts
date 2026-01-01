@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      casino_games: {
+        Row: {
+          code: string
+          created_at: string | null
+          current_combination: string[] | null
+          current_round: number | null
+          guesser_index: number | null
+          guesses_in_round: number | null
+          id: string
+          player_count: number
+          status: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          current_combination?: string[] | null
+          current_round?: number | null
+          guesser_index?: number | null
+          guesses_in_round?: number | null
+          id?: string
+          player_count: number
+          status?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          current_combination?: string[] | null
+          current_round?: number | null
+          guesser_index?: number | null
+          guesses_in_round?: number | null
+          id?: string
+          player_count?: number
+          status?: string | null
+        }
+        Relationships: []
+      }
+      casino_players: {
+        Row: {
+          game_id: string
+          id: string
+          player_index: number
+          symbol: string
+          viewed_at: string | null
+        }
+        Insert: {
+          game_id: string
+          id?: string
+          player_index: number
+          symbol: string
+          viewed_at?: string | null
+        }
+        Update: {
+          game_id?: string
+          id?: string
+          player_index?: number
+          symbol?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "casino_players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "casino_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crocodile_games: {
         Row: {
           code: string
