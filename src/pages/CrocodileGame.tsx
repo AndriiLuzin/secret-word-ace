@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { Eye, EyeOff, RotateCcw, ArrowRight, Home } from "lucide-react";
+import { playNotificationSound } from "@/lib/audio";
 
 interface CrocodileGame {
   id: string;
@@ -22,14 +23,21 @@ interface CrocodileWord {
   category: string;
 }
 
+interface PlayerView {
+  player_index: number;
+}
+
 const CrocodileGame = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const [game, setGame] = useState<CrocodileGame | null>(null);
   const [word, setWord] = useState<CrocodileWord | null>(null);
+  const [views, setViews] = useState<PlayerView[]>([]);
   const [loading, setLoading] = useState(true);
   const [showWord, setShowWord] = useState(false);
-  const [showQR, setShowQR] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
+
+  const gameUrl = `${window.location.origin}/crocodile/${code}`;
 
   const fetchGame = async () => {
     if (!code) return;
@@ -61,17 +69,33 @@ const CrocodileGame = () => {
       }
     }
 
-    setLoading(false);
+    return data;
   };
 
   useEffect(() => {
-    fetchGame();
+    if (!code) return;
+
+    const initGame = async () => {
+      const gameData = await fetchGame();
+      if (!gameData) return;
+
+      // For Crocodile, we'll use a simple views tracking
+      // Admin is automatically the last player
+      const adminIndex = gameData.player_count - 1;
+      
+      // Check if all players have "joined" - for simplicity, auto-reveal after load
+      // In Crocodile, we don't need the same waiting room as other games
+      // But let's add it for consistency
+      setIsRevealed(true); // Crocodile doesn't need waiting room
+      setLoading(false);
+    };
+
+    initGame();
   }, [code]);
 
   const nextWord = async () => {
     if (!game) return;
 
-    // Get new random word
     const { data: words } = await supabase
       .from("crocodile_words")
       .select("id");
@@ -95,7 +119,6 @@ const CrocodileGame = () => {
 
     const nextPlayerIndex = (game.current_player + 1) % game.player_count;
     
-    // Get new random word
     const { data: words } = await supabase
       .from("crocodile_words")
       .select("id");
@@ -127,8 +150,6 @@ const CrocodileGame = () => {
   }
 
   if (!game) return null;
-
-  const gameUrl = `${window.location.origin}/crocodile/${code}`;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
@@ -221,24 +242,18 @@ const CrocodileGame = () => {
           </div>
         </div>
 
-        {/* QR Code Toggle */}
-        <div className="mt-8">
-          <Button
-            variant="ghost"
-            onClick={() => setShowQR(!showQR)}
-            className="w-full text-muted-foreground"
-          >
-            {showQR ? "Скрыть QR-код" : "Показать QR-код для друзей"}
-          </Button>
-
-          {showQR && (
-            <div className="mt-4 flex flex-col items-center p-6 border border-border rounded-lg">
-              <QRCodeSVG value={gameUrl} size={160} />
-              <p className="mt-4 text-sm text-muted-foreground">
-                Код игры: <span className="font-mono font-bold">{code}</span>
-              </p>
-            </div>
-          )}
+        {/* QR Code */}
+        <div className="mt-8 flex flex-col items-center p-6 border border-border rounded-lg">
+          <QRCodeSVG 
+            value={gameUrl} 
+            size={160}
+            bgColor="transparent"
+            fgColor="hsl(var(--foreground))"
+            level="M"
+          />
+          <p className="mt-4 text-sm text-muted-foreground">
+            Код игры: <span className="font-mono font-bold">{code}</span>
+          </p>
         </div>
 
         {/* Rules */}
