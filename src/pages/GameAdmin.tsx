@@ -54,18 +54,45 @@ const GameAdmin = () => {
         .select("player_index")
         .eq("game_id", gameData.id);
 
-      setViews(viewsData || []);
+      // Auto-register admin as player #0 if not already registered
+      const adminViewed = viewsData?.some((v) => v.player_index === 0);
+      if (!adminViewed) {
+        await supabase.from("player_views").insert({
+          game_id: gameData.id,
+          player_index: 0,
+        });
+        // Refetch views after registering admin
+        const { data: updatedViews } = await supabase
+          .from("player_views")
+          .select("player_index")
+          .eq("game_id", gameData.id);
+        setViews(updatedViews || []);
 
-      // Fetch word and auto-reveal if all players have viewed
-      if (viewsData && viewsData.length >= gameData.player_count) {
-        const { data: wordData } = await supabase
-          .from("game_words")
-          .select("word")
-          .eq("id", gameData.word_id)
-          .single();
+        // Check if all viewed after adding admin
+        if (updatedViews && updatedViews.length >= gameData.player_count) {
+          const { data: wordData } = await supabase
+            .from("game_words")
+            .select("word")
+            .eq("id", gameData.word_id)
+            .single();
 
-        setWord(wordData?.word || null);
-        setIsRevealed(true);
+          setWord(wordData?.word || null);
+          setIsRevealed(true);
+        }
+      } else {
+        setViews(viewsData || []);
+
+        // Fetch word and auto-reveal if all players have viewed
+        if (viewsData && viewsData.length >= gameData.player_count) {
+          const { data: wordData } = await supabase
+            .from("game_words")
+            .select("word")
+            .eq("id", gameData.word_id)
+            .single();
+
+          setWord(wordData?.word || null);
+          setIsRevealed(true);
+        }
       }
 
       setIsLoading(false);
