@@ -54,12 +54,13 @@ const GameAdmin = () => {
         .select("player_index")
         .eq("game_id", gameData.id);
 
-      // Auto-register admin as player #0 if not already registered
-      const adminViewed = viewsData?.some((v) => v.player_index === 0);
+      // Auto-register admin as the last player (player_count - 1)
+      const adminIndex = gameData.player_count - 1;
+      const adminViewed = viewsData?.some((v) => v.player_index === adminIndex);
       if (!adminViewed) {
         await supabase.from("player_views").insert({
           game_id: gameData.id,
-          player_index: 0,
+          player_index: adminIndex,
         });
         // Refetch views after registering admin
         const { data: updatedViews } = await supabase
