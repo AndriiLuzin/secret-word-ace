@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      crocodile_games: {
+        Row: {
+          code: string
+          created_at: string | null
+          current_player: number | null
+          current_word_id: string | null
+          id: string
+          player_count: number
+          round: number | null
+          status: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          current_player?: number | null
+          current_word_id?: string | null
+          id?: string
+          player_count: number
+          round?: number | null
+          status?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          current_player?: number | null
+          current_word_id?: string | null
+          id?: string
+          player_count?: number
+          round?: number | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crocodile_games_current_word_id_fkey"
+            columns: ["current_word_id"]
+            isOneToOne: false
+            referencedRelation: "crocodile_words"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crocodile_words: {
+        Row: {
+          category: string | null
+          id: string
+          word: string
+        }
+        Insert: {
+          category?: string | null
+          id?: string
+          word: string
+        }
+        Update: {
+          category?: string | null
+          id?: string
+          word?: string
+        }
+        Relationships: []
+      }
       game_words: {
         Row: {
           id: string
