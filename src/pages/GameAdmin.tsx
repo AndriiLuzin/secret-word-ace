@@ -28,6 +28,7 @@ const GameAdmin = () => {
   const [views, setViews] = useState<PlayerView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRevealed, setIsRevealed] = useState(false);
+  const [startingPlayer, setStartingPlayer] = useState<number | null>(null);
 
   const gameUrl = `${window.location.origin}/play/${code}`;
 
@@ -80,6 +81,10 @@ const GameAdmin = () => {
 
           setWord(wordData?.word || null);
           setIsRevealed(true);
+          // Select random starting player (not impostor)
+          const validPlayers = Array.from({ length: gameData.player_count }, (_, i) => i)
+            .filter(i => i !== gameData.impostor_index);
+          setStartingPlayer(validPlayers[Math.floor(Math.random() * validPlayers.length)]);
           playNotificationSound();
         }
       } else {
@@ -95,6 +100,10 @@ const GameAdmin = () => {
 
           setWord(wordData?.word || null);
           setIsRevealed(true);
+          // Select random starting player (not impostor)
+          const validPlayers = Array.from({ length: gameData.player_count }, (_, i) => i)
+            .filter(i => i !== gameData.impostor_index);
+          setStartingPlayer(validPlayers[Math.floor(Math.random() * validPlayers.length)]);
           playNotificationSound();
         }
       }
@@ -134,6 +143,10 @@ const GameAdmin = () => {
 
             setWord(wordData?.word || null);
             setIsRevealed(true);
+            // Select random starting player (not impostor)
+            const validPlayers = Array.from({ length: game.player_count }, (_, i) => i)
+              .filter(i => i !== game.impostor_index);
+            setStartingPlayer(validPlayers[Math.floor(Math.random() * validPlayers.length)]);
             playNotificationSound();
           }
         }
@@ -173,6 +186,7 @@ const GameAdmin = () => {
       setWord(null);
       setViews([]);
       setIsRevealed(false);
+      setStartingPlayer(null);
       setGame({ ...game, word_id: randomWord.id, impostor_index: newImpostorIndex });
       
       toast.success("Новый раунд начат!");
@@ -225,6 +239,15 @@ const GameAdmin = () => {
             <p className="text-xs text-muted-foreground mt-4">
               Самозванец — игрок #{game.impostor_index + 1}
             </p>
+          )}
+
+          {startingPlayer !== null && (
+            <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+              <p className="text-sm text-muted-foreground">Первым начинает</p>
+              <p className="text-2xl font-bold text-primary">
+                Игрок #{startingPlayer + 1}
+              </p>
+            </div>
           )}
 
           <Button
