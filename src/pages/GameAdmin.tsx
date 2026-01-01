@@ -1,0 +1,244 @@
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+
+interface Game {
+  id: string;
+  code: string;
+  player_count: number;
+  word_id: string;
+  impostor_index: number;
+  status: string;
+  views_count: number;
+}
+
+interface PlayerView {
+  player_index: number;
+}
+
+const GameAdmin = () => {
+  const { code } = useParams<{ code: string }>();
+  const navigate = useNavigate();
+  const [game, setGame] = useState<Game | null>(null);
+  const [word, setWord] = useState<string | null>(null);
+  const [views, setViews] = useState<PlayerView[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const gameUrl = `${window.location.origin}/play/${code}`;
+
+  useEffect(() => {
+    if (!code) return;
+
+    const fetchGame = async () => {
+      const { data: gameData, error } = await supabase
+        .from("games")
+        .select("*")
+        .eq("code", code)
+        .maybeSingle();
+
+      if (error || !gameData) {
+        toast.error("Игра не найдена");
+        navigate("/");
+        return;
+      }
+
+      setGame(gameData);
+
+      // Fetch views
+      const { data: viewsData } = await supabase
+        .from("player_views")
+        .select("player_index")
+        .eq("game_id", gameData.id);
+
+      setViews(viewsData || []);
+
+      // Fetch word if all players have viewed
+      if (viewsData && viewsData.length >= gameData.player_count) {
+        const { data: wordData } = await supabase
+          .from("game_words")
+          .select("word")
+          .eq("id", gameData.word_id)
+          .single();
+
+        setWord(wordData?.word || null);
+      }
+
+      setIsLoading(false);
+    };
+
+    fetchGame();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel(`game-${code}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "player_views",
+        },
+        async () => {
+          // Refetch views
+          if (!game) return;
+          const { data: viewsData } = await supabase
+            .from("player_views")
+            .select("player_index")
+            .eq("game_id", game.id);
+
+          setViews(viewsData || []);
+
+          // Check if all viewed
+          if (viewsData && game && viewsData.length >= game.player_count) {
+            const { data: wordData } = await supabase
+              .from("game_words")
+              .select("word")
+              .eq("id", game.word_id)
+              .single();
+
+            setWord(wordData?.word || null);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [code, navigate, game?.id, game?.player_count, game?.word_id]);
+
+  const startNewRound = async () => {
+    if (!game) return;
+
+    try {
+      // Get new random word
+      const { data: words } = await supabase.from("game_words").select("id");
+
+      if (!words?.length) throw new Error("No words");
+
+      const randomWord = words[Math.floor(Math.random() * words.length)];
+      const newImpostorIndex = Math.floor(Math.random() * game.player_count);
+
+      // Delete old views
+      await supabase.from("player_views").delete().eq("game_id", game.id);
+
+      // Update game
+      await supabase
+        .from("games")
+        .update({
+          word_id: randomWord.id,
+          impostor_index: newImpostorIndex,
+          views_count: 0,
+        })
+        .eq("id", game.id);
+
+      setWord(null);
+      setViews([]);
+      setGame({ ...game, word_id: randomWord.id, impostor_index: newImpostorIndex });
+      
+      toast.success("Новый раунд начат!");
+    } catch (error) {
+      toast.error("Ошибка");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (!game) return null;
+
+  const allViewed = views.length >= game.player_count;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+      <div className="w-full max-w-sm animate-fade-in">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">
+            ИГРА {code}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            {views.length} / {game.player_count} игроков посмотрели
+          </p>
+        </div>
+
+        <div className="bg-secondary p-6 flex items-center justify-center mb-6">
+          <QRCodeSVG
+            value={gameUrl}
+            size={200}
+            bgColor="transparent"
+            fgColor="hsl(var(--foreground))"
+            level="M"
+          />
+        </div>
+
+        <div className="text-center mb-8">
+          <p className="text-xs text-muted-foreground break-all">{gameUrl}</p>
+        </div>
+
+        {allViewed && word && (
+          <div className="text-center mb-8 animate-scale-in">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+              Секретное слово
+            </p>
+            <p className="text-3xl font-bold text-foreground">{word}</p>
+            <p className="text-xs text-muted-foreground mt-4">
+              Самозванец — игрок #{game.impostor_index + 1}
+            </p>
+          </div>
+        )}
+
+        {!allViewed && (
+          <div className="text-center mb-8">
+            <p className="text-sm text-muted-foreground">
+              Ожидание игроков...
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-5 gap-2 mb-8">
+          {Array.from({ length: game.player_count }).map((_, i) => {
+            const hasViewed = views.some((v) => v.player_index === i);
+            return (
+              <div
+                key={i}
+                className={`aspect-square flex items-center justify-center text-sm font-bold transition-colors ${
+                  hasViewed
+                    ? "bg-foreground text-background"
+                    : "bg-secondary text-muted-foreground"
+                }`}
+              >
+                {i + 1}
+              </div>
+            );
+          })}
+        </div>
+
+        <Button
+          onClick={startNewRound}
+          variant="outline"
+          className="w-full h-12 font-bold uppercase tracking-wider"
+        >
+          Новый раунд
+        </Button>
+
+        <Button
+          onClick={() => navigate("/")}
+          variant="ghost"
+          className="w-full mt-4 text-muted-foreground"
+        >
+          Новая игра
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default GameAdmin;
