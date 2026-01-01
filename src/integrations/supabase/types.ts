@@ -70,6 +70,65 @@ export type Database = {
           },
         ]
       }
+      mafia_games: {
+        Row: {
+          code: string
+          created_at: string | null
+          id: string
+          mafia_count: number
+          player_count: number
+          status: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          id?: string
+          mafia_count: number
+          player_count: number
+          status?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          id?: string
+          mafia_count?: number
+          player_count?: number
+          status?: string | null
+        }
+        Relationships: []
+      }
+      mafia_players: {
+        Row: {
+          game_id: string
+          id: string
+          player_index: number
+          role: string
+          viewed_at: string | null
+        }
+        Insert: {
+          game_id: string
+          id?: string
+          player_index: number
+          role: string
+          viewed_at?: string | null
+        }
+        Update: {
+          game_id?: string
+          id?: string
+          player_index?: number
+          role?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mafia_players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "mafia_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_views: {
         Row: {
           game_id: string

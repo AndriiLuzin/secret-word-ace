@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Users } from "lucide-react";
+import { Users, Skull } from "lucide-react";
 
 const games = [
   {
@@ -9,6 +9,14 @@ const games = [
     icon: Users,
     path: "/impostor",
     players: "3-20",
+  },
+  {
+    id: "mafia",
+    title: "Мафия",
+    description: "Город засыпает, просыпается мафия",
+    icon: Skull,
+    path: "/mafia",
+    players: "4-20",
   },
 ];
 
