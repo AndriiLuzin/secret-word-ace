@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
-import { Home, RotateCcw, Users } from "lucide-react";
+import { Home } from "lucide-react";
+import { playNotificationSound } from "@/lib/audio";
 
 interface WhoAmIGame {
   id: string;
@@ -25,33 +26,22 @@ interface WhoAmIPlayer {
   };
 }
 
+interface PlayerView {
+  player_index: number;
+}
+
 const WhoAmIGame = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const [game, setGame] = useState<WhoAmIGame | null>(null);
   const [guesserPlayer, setGuesserPlayer] = useState<WhoAmIPlayer | null>(null);
+  const [views, setViews] = useState<PlayerView[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showQR, setShowQR] = useState(true);
-  const [viewedCount, setViewedCount] = useState(0);
+  const [isRevealed, setIsRevealed] = useState(false);
 
-  const fetchGame = async () => {
-    if (!code) return;
+  const playerUrl = `${window.location.origin}/whoami/${code}/play`;
 
-    const { data: gameData, error: gameError } = await supabase
-      .from("whoami_games")
-      .select("*")
-      .eq("code", code)
-      .maybeSingle();
-
-    if (gameError || !gameData) {
-      toast.error("Игра не найдена");
-      navigate("/");
-      return;
-    }
-
-    setGame(gameData);
-
-    // Fetch guesser player with character
+  const fetchGuesserCharacter = async (gameId: string, guesserIdx: number) => {
     const { data: playerData } = await supabase
       .from("whoami_players")
       .select(`
@@ -64,8 +54,8 @@ const WhoAmIGame = () => {
           category
         )
       `)
-      .eq("game_id", gameData.id)
-      .eq("player_index", gameData.guesser_index)
+      .eq("game_id", gameId)
+      .eq("player_index", guesserIdx)
       .maybeSingle();
 
     if (playerData) {
@@ -74,25 +64,68 @@ const WhoAmIGame = () => {
         character: (playerData as any).whoami_characters,
       });
     }
-
-    // Get view count
-    const { data: views } = await supabase
-      .from("whoami_player_views")
-      .select("player_index")
-      .eq("game_id", gameData.id);
-
-    setViewedCount(views?.length || 0);
-    setLoading(false);
   };
 
   useEffect(() => {
+    if (!code) return;
+
+    const fetchGame = async () => {
+      const { data: gameData, error: gameError } = await supabase
+        .from("whoami_games")
+        .select("*")
+        .eq("code", code)
+        .maybeSingle();
+
+      if (gameError || !gameData) {
+        toast.error("Игра не найдена");
+        navigate("/");
+        return;
+      }
+
+      setGame(gameData);
+      await fetchGuesserCharacter(gameData.id, gameData.guesser_index);
+
+      // Fetch views
+      const { data: viewsData } = await supabase
+        .from("whoami_player_views")
+        .select("player_index")
+        .eq("game_id", gameData.id);
+
+      // Auto-register admin as a player (last slot)
+      const adminIndex = gameData.player_count - 1;
+      const adminViewed = viewsData?.some((v) => v.player_index === adminIndex);
+      
+      if (!adminViewed) {
+        await supabase.from("whoami_player_views").insert({
+          game_id: gameData.id,
+          player_index: adminIndex,
+        });
+        
+        const { data: updatedViews } = await supabase
+          .from("whoami_player_views")
+          .select("player_index")
+          .eq("game_id", gameData.id);
+        
+        setViews(updatedViews || []);
+        
+        if (updatedViews && updatedViews.length >= gameData.player_count) {
+          setIsRevealed(true);
+          playNotificationSound();
+        }
+      } else {
+        setViews(viewsData || []);
+        
+        if (viewsData && viewsData.length >= gameData.player_count) {
+          setIsRevealed(true);
+        }
+      }
+
+      setLoading(false);
+    };
+
     fetchGame();
-  }, [code]);
 
-  // Listen for new players joining
-  useEffect(() => {
-    if (!game) return;
-
+    // Subscribe to player views updates
     const channel = supabase
       .channel(`whoami-admin-${code}`)
       .on(
@@ -103,12 +136,19 @@ const WhoAmIGame = () => {
           table: "whoami_player_views",
         },
         async () => {
-          const { data: views } = await supabase
+          if (!game) return;
+          
+          const { data: viewsData } = await supabase
             .from("whoami_player_views")
             .select("player_index")
             .eq("game_id", game.id);
 
-          setViewedCount(views?.length || 0);
+          setViews(viewsData || []);
+
+          if (viewsData && game && viewsData.length >= game.player_count) {
+            setIsRevealed(true);
+            playNotificationSound();
+          }
         }
       )
       .subscribe();
@@ -116,71 +156,78 @@ const WhoAmIGame = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [game, code]);
+  }, [code, navigate, game?.id, game?.player_count]);
 
   const newRound = async () => {
     if (!game) return;
 
-    // Get new random character
-    const { data: characters } = await supabase
-      .from("whoami_characters")
-      .select("id");
+    try {
+      // Get new random character
+      const { data: characters } = await supabase
+        .from("whoami_characters")
+        .select("id");
 
-    if (!characters?.length) return;
+      if (!characters?.length) throw new Error("No characters");
 
-    // Pick new random guesser (different from current if possible)
-    let newGuesserIndex = Math.floor(Math.random() * game.player_count);
-    if (game.player_count > 1 && newGuesserIndex === game.guesser_index) {
-      newGuesserIndex = (newGuesserIndex + 1) % game.player_count;
-    }
+      // Pick new random guesser (different from current if possible)
+      let newGuesserIndex = Math.floor(Math.random() * game.player_count);
+      if (game.player_count > 1 && newGuesserIndex === game.guesser_index) {
+        newGuesserIndex = (newGuesserIndex + 1) % game.player_count;
+      }
 
-    const randomCharacter = characters[Math.floor(Math.random() * characters.length)];
+      const randomCharacter = characters[Math.floor(Math.random() * characters.length)];
 
-    // Delete old player views
-    await supabase
-      .from("whoami_player_views")
-      .delete()
-      .eq("game_id", game.id);
-
-    // Update or create guesser player
-    const { data: existingPlayer } = await supabase
-      .from("whoami_players")
-      .select("id")
-      .eq("game_id", game.id)
-      .eq("player_index", newGuesserIndex)
-      .maybeSingle();
-
-    if (existingPlayer) {
+      // Delete old player views
       await supabase
+        .from("whoami_player_views")
+        .delete()
+        .eq("game_id", game.id);
+
+      // Update or create guesser player
+      const { data: existingPlayer } = await supabase
         .from("whoami_players")
+        .select("id")
+        .eq("game_id", game.id)
+        .eq("player_index", newGuesserIndex)
+        .maybeSingle();
+
+      if (existingPlayer) {
+        await supabase
+          .from("whoami_players")
+          .update({
+            character_id: randomCharacter.id,
+            guessed: false,
+          })
+          .eq("id", existingPlayer.id);
+      } else {
+        await supabase
+          .from("whoami_players")
+          .insert({
+            game_id: game.id,
+            player_index: newGuesserIndex,
+            character_id: randomCharacter.id,
+            guessed: false,
+          });
+      }
+
+      // Update game with new guesser
+      await supabase
+        .from("whoami_games")
         .update({
-          character_id: randomCharacter.id,
-          guessed: false,
+          guesser_index: newGuesserIndex,
+          status: "playing",
         })
-        .eq("id", existingPlayer.id);
-    } else {
-      await supabase
-        .from("whoami_players")
-        .insert({
-          game_id: game.id,
-          player_index: newGuesserIndex,
-          character_id: randomCharacter.id,
-          guessed: false,
-        });
+        .eq("id", game.id);
+
+      setViews([]);
+      setIsRevealed(false);
+      setGame({ ...game, guesser_index: newGuesserIndex });
+      await fetchGuesserCharacter(game.id, newGuesserIndex);
+      
+      toast.success("Новый раунд начат!");
+    } catch (error) {
+      toast.error("Ошибка");
     }
-
-    // Update game with new guesser
-    await supabase
-      .from("whoami_games")
-      .update({
-        guesser_index: newGuesserIndex,
-        status: "playing",
-      })
-      .eq("id", game.id);
-
-    setViewedCount(0);
-    toast.success(`Новый раунд! Теперь угадывает игрок #${newGuesserIndex + 1}`);
-    fetchGame();
   };
 
   if (loading) {
@@ -193,86 +240,145 @@ const WhoAmIGame = () => {
 
   if (!game) return null;
 
-  const playerUrl = `${window.location.origin}/whoami/${code}/play`;
+  const allViewed = views.length >= game.player_count;
+  const adminIndex = game.player_count - 1;
+  const isAdminGuesser = game.guesser_index === adminIndex;
 
-  return (
-    <div className="min-h-screen flex flex-col items-center p-6 bg-background">
-      <div className="w-full max-w-md animate-fade-in">
-        <div className="flex items-center justify-between mb-8">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <Home className="w-5 h-5" />
-          </Button>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            КТО Я?
+  // Show role screen when all viewed
+  if (allViewed && isRevealed) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/")}
+          className="absolute top-4 left-4"
+        >
+          <Home className="w-5 h-5" />
+        </Button>
+        <div className="text-center animate-scale-in">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
+            {isAdminGuesser ? "Твоя задача" : `Персонаж игрока #${game.guesser_index + 1}`}
+          </p>
+          <h1 className="text-4xl font-bold text-foreground">
+            {isAdminGuesser ? "КТО Я?" : guesserPlayer?.character?.name}
           </h1>
-          <div className="w-10" />
-        </div>
-
-        {/* Game Info */}
-        <div className="text-center mb-6">
-          <p className="text-sm text-muted-foreground">
-            Код игры: <span className="font-mono font-bold">{code}</span>
-          </p>
-          <div className="flex items-center justify-center gap-2 mt-2 text-muted-foreground">
-            <Users className="w-4 h-4" />
-            <span className="text-sm">
-              {viewedCount} / {game.player_count} игроков присоединилось
-            </span>
-          </div>
-        </div>
-
-        {/* Current Guesser Info */}
-        <div className="bg-accent/50 rounded-xl p-6 mb-6 text-center">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-            Угадывает игрок
-          </p>
-          <div className="w-16 h-16 rounded-full bg-foreground text-background flex items-center justify-center font-bold text-2xl mx-auto mb-3">
-            {game.guesser_index + 1}
-          </div>
-          <p className="text-lg font-bold text-foreground">
-            {guesserPlayer?.character?.name}
-          </p>
-          {guesserPlayer?.character?.category && (
-            <p className="text-sm text-muted-foreground">
+          {!isAdminGuesser && guesserPlayer?.character?.category && (
+            <p className="text-muted-foreground text-sm mt-2">
               {guesserPlayer.character.category}
             </p>
           )}
+          <p className="text-muted-foreground text-sm mt-6">
+            {isAdminGuesser ? (
+              <>
+                Ты не знаешь своего персонажа.
+                <br />
+                Задавай вопросы с ответами Да/Нет.
+              </>
+            ) : (
+              <>
+                Игрок #{game.guesser_index + 1} не знает кто он.
+                <br />
+                Помоги ему угадать, отвечая на вопросы.
+              </>
+            )}
+          </p>
+
+          <Button
+            onClick={() => setIsRevealed(false)}
+            variant="outline"
+            className="mt-12"
+          >
+            Скрыть
+          </Button>
+
+          <Button
+            onClick={newRound}
+            variant="outline"
+            className="w-full mt-4 h-12 font-bold uppercase tracking-wider"
+          >
+            Угадал! Новый раунд
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4"
+      >
+        <Home className="w-5 h-5" />
+      </Button>
+      <div className="w-full max-w-sm animate-fade-in">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">
+            КТО Я? {code}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            {views.length} / {game.player_count} игроков посмотрели
+          </p>
         </div>
 
-        {/* QR Code */}
-        {showQR && (
-          <div className="flex flex-col items-center p-6 border border-border rounded-lg mb-6">
-            <p className="text-sm text-muted-foreground mb-4">
-              Сканируйте чтобы присоединиться
+        <div className="bg-secondary p-6 flex items-center justify-center mb-6">
+          <QRCodeSVG
+            value={playerUrl}
+            size={200}
+            bgColor="transparent"
+            fgColor="hsl(var(--foreground))"
+            level="M"
+          />
+        </div>
+
+        <div className="text-center mb-8">
+          <p className="text-xs text-muted-foreground break-all">{playerUrl}</p>
+        </div>
+
+        {!allViewed && (
+          <div className="text-center mb-8">
+            <p className="text-sm text-muted-foreground">
+              Ожидание игроков...
             </p>
-            <QRCodeSVG value={playerUrl} size={180} />
           </div>
         )}
 
-        <Button
-          variant="ghost"
-          onClick={() => setShowQR(!showQR)}
-          className="w-full text-muted-foreground mb-4"
-        >
-          {showQR ? "Скрыть QR-код" : "Показать QR-код"}
-        </Button>
-
-        {/* New Round Button */}
-        <Button onClick={newRound} className="w-full h-12 mb-4">
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Угадал! Новый раунд
-        </Button>
-
-        {/* Rules */}
-        <div className="mt-4 p-4 border border-border rounded-lg">
-          <h4 className="font-bold text-foreground mb-2">Правила:</h4>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• Один игрок видит "Кто я?"</li>
-            <li>• Остальные видят его персонажа</li>
-            <li>• Задавай вопросы с ответами Да/Нет</li>
-            <li>• Угадал — жми кнопку для нового раунда!</li>
-          </ul>
+        <div className="grid grid-cols-5 gap-2 mb-8">
+          {Array.from({ length: game.player_count }).map((_, i) => {
+            const hasViewed = views.some((v) => v.player_index === i);
+            return (
+              <div
+                key={i}
+                className={`aspect-square flex items-center justify-center text-sm font-bold transition-colors ${
+                  hasViewed
+                    ? "bg-foreground text-background"
+                    : "bg-secondary text-muted-foreground"
+                }`}
+              >
+                {i + 1}
+              </div>
+            );
+          })}
         </div>
+
+        <Button
+          onClick={newRound}
+          variant="outline"
+          className="w-full h-12 font-bold uppercase tracking-wider"
+        >
+          Новый раунд
+        </Button>
+
+        <Button
+          onClick={() => navigate("/")}
+          variant="ghost"
+          className="w-full mt-4 text-muted-foreground"
+        >
+          Новая игра
+        </Button>
       </div>
     </div>
   );
