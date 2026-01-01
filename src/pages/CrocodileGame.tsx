@@ -320,24 +320,27 @@ const CrocodileGame = () => {
   // Waiting for players phase
   if (!allPlayersJoined || game.status === "waiting") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
-        <div className="w-full max-w-md animate-fade-in">
-          <div className="flex items-center justify-between mb-8">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/")}
-            >
-              <Home className="w-5 h-5" />
-            </Button>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/")}
+          className="absolute top-4 left-4"
+        >
+          <Home className="w-5 h-5" />
+        </Button>
+        <div className="w-full max-w-sm animate-fade-in">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">
               КРОКОДИЛ
             </h1>
-            <div className="w-10" />
+            <p className="text-muted-foreground text-sm">
+              {views.length} / {game.player_count} игроков подключились
+            </p>
           </div>
 
           {/* QR Code */}
-          <div className="flex flex-col items-center p-8 border border-border rounded-xl bg-card mb-8">
+          <div className="bg-secondary p-6 flex flex-col items-center justify-center mb-6">
             <QRCodeSVG
               value={gameUrl}
               size={200}
@@ -345,34 +348,34 @@ const CrocodileGame = () => {
               fgColor="hsl(var(--foreground))"
               level="M"
             />
-            <p className="mt-6 text-sm text-muted-foreground">
+            <p className="mt-4 text-sm text-muted-foreground">
               Код игры: <span className="font-mono font-bold text-foreground">{code}</span>
             </p>
           </div>
 
-          {/* Players Count */}
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <Users className="w-5 h-5 text-muted-foreground" />
-            <span className="text-lg font-semibold text-foreground">
-              {views.length} / {game.player_count}
-            </span>
-            <span className="text-muted-foreground">игроков</span>
+          <div className="text-center mb-8">
+            <p className="text-xs text-muted-foreground break-all">{gameUrl}</p>
           </div>
 
-          {/* Player indicators */}
-          <div className="flex justify-center gap-2 mb-8">
+          {!allPlayersJoined && (
+            <div className="text-center mb-8">
+              <p className="text-sm text-muted-foreground">
+                Ожидание игроков...
+              </p>
+            </div>
+          )}
+
+          {/* Player indicators - square like Impostor */}
+          <div className="grid grid-cols-5 gap-2 mb-8">
             {Array.from({ length: game.player_count }).map((_, i) => {
               const hasJoined = views.some((v) => v.player_index === i);
-              const isAdmin = i === adminIndex;
               return (
                 <div
                   key={i}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                  className={`aspect-square flex items-center justify-center text-sm font-bold transition-colors ${
                     hasJoined
-                      ? isAdmin
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-green-500 text-white"
-                      : "bg-muted text-muted-foreground"
+                      ? "bg-foreground text-background"
+                      : "bg-secondary text-muted-foreground"
                   }`}
                 >
                   {i + 1}
@@ -385,17 +388,19 @@ const CrocodileGame = () => {
           {allPlayersJoined && game.status === "waiting" && (
             <Button
               onClick={startGame}
-              className="w-full h-14 text-lg font-bold"
+              className="w-full h-14 text-lg font-bold uppercase tracking-wider"
             >
-              Начать игру!
+              Начать игру
             </Button>
           )}
 
-          {!allPlayersJoined && (
-            <p className="text-center text-muted-foreground">
-              Ожидание игроков...
-            </p>
-          )}
+          <Button
+            onClick={() => navigate("/")}
+            variant="ghost"
+            className="w-full mt-4 text-muted-foreground"
+          >
+            Новая игра
+          </Button>
         </div>
       </div>
     );
