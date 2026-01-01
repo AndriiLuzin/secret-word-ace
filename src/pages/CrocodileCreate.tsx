@@ -48,7 +48,9 @@ const CrocodileCreate = () => {
           player_count: count,
           current_word_id: randomWord.id,
           current_player: 0,
-          status: "playing",
+          showing_player: 0,
+          current_guesser: 1,
+          status: "waiting",
           round: 1,
         });
 

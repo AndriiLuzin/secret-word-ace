@@ -12,6 +12,7 @@ import MafiaAdmin from "./pages/MafiaAdmin";
 import MafiaPlayer from "./pages/MafiaPlayer";
 import CrocodileCreate from "./pages/CrocodileCreate";
 import CrocodileGame from "./pages/CrocodileGame";
+import CrocodilePlayer from "./pages/CrocodilePlayer";
 import WhoAmICreate from "./pages/WhoAmICreate";
 import WhoAmIGame from "./pages/WhoAmIGame";
 import WhoAmIPlayer from "./pages/WhoAmIPlayer";
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/mafia-play/:code" element={<MafiaPlayer />} />
           <Route path="/crocodile" element={<CrocodileCreate />} />
           <Route path="/crocodile/:code" element={<CrocodileGame />} />
+          <Route path="/crocodile-play/:code" element={<CrocodilePlayer />} />
           <Route path="/whoami" element={<WhoAmICreate />} />
           <Route path="/whoami/:code/admin" element={<WhoAmIGame />} />
           <Route path="/whoami/:code/play" element={<WhoAmIPlayer />} />

@@ -18,31 +18,37 @@ export type Database = {
         Row: {
           code: string
           created_at: string | null
+          current_guesser: number | null
           current_player: number | null
           current_word_id: string | null
           id: string
           player_count: number
           round: number | null
+          showing_player: number | null
           status: string | null
         }
         Insert: {
           code: string
           created_at?: string | null
+          current_guesser?: number | null
           current_player?: number | null
           current_word_id?: string | null
           id?: string
           player_count: number
           round?: number | null
+          showing_player?: number | null
           status?: string | null
         }
         Update: {
           code?: string
           created_at?: string | null
+          current_guesser?: number | null
           current_player?: number | null
           current_word_id?: string | null
           id?: string
           player_count?: number
           round?: number | null
+          showing_player?: number | null
           status?: string | null
         }
         Relationships: [
