@@ -162,9 +162,13 @@ const CasinoGame = () => {
     const nonGuesserPlayers = players.filter((p) => p.player_index !== game.guesser_index);
     const availableSymbols = nonGuesserPlayers.map((p) => p.symbol);
     
-    // Generate combination of 3 symbols (can repeat)
+    // Determine combination size based on player count
+    // 3 players = 1 symbol, 4 players = 2 symbols, 5+ players = 3 symbols
+    const combinationSize = game.player_count <= 3 ? 1 : game.player_count === 4 ? 2 : 3;
+    
+    // Generate combination
     const combination: string[] = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < combinationSize; i++) {
       const randomSymbol = availableSymbols[Math.floor(Math.random() * availableSymbols.length)];
       combination.push(randomSymbol);
     }
