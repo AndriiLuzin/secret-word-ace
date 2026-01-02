@@ -328,20 +328,15 @@ const CasinoPlayer = () => {
     }, 1000);
   };
 
-  // Handler for when a regular player confirms guess result
+  // Handler for when a regular player confirms guess result - always restarts round
   const handlePlayerConfirmResult = async (correct: boolean) => {
     if (!game) return;
 
     if (correct) {
-      // Correct guess - reset combination, guesser spins again
-      await supabase
-        .from("casino_games")
-        .update({ current_combination: [] })
-        .eq("id", game.id);
-
-      toast.success("Угадал! Угадывающий продолжает.");
+      // Correct guess - guesser continues, new combination
+      toast.success("Угадал! Новый раунд.");
     } else {
-      // Wrong guess - increment round counter
+      // Wrong guess - increment failure counter
       const newFailures = game.guesses_in_round + 1;
       
       if (newFailures >= 3) {
@@ -359,34 +354,35 @@ const CasinoPlayer = () => {
           .eq("id", game.id);
 
         toast.info("3 ошибки! Ход переходит к следующему игроку.");
+        return;
       } else {
-        // Auto-spin for next attempt - generate new combination immediately
-        const { data: playersData } = await supabase
-          .from("casino_players")
-          .select("*")
-          .eq("game_id", game.id);
-        
-        const nonGuesserPlayers = (playersData || []).filter((p) => p.player_index !== game.guesser_index);
-        const availableSymbols = nonGuesserPlayers.map((p) => p.symbol);
-        
-        const combinationSize = game.player_count <= 3 ? 1 : game.player_count === 4 ? 2 : 3;
-        const combination: string[] = [];
-        for (let i = 0; i < combinationSize; i++) {
-          const randomSymbol = availableSymbols[Math.floor(Math.random() * availableSymbols.length)];
-          combination.push(randomSymbol);
-        }
-
-        await supabase
-          .from("casino_games")
-          .update({
-            guesses_in_round: newFailures,
-            current_combination: combination,
-          })
-          .eq("id", game.id);
-
-        toast.error(`Не угадал! Попытка ${newFailures + 1}/3 - новая комбинация!`);
+        toast.error(`Не угадал! Попытка ${newFailures + 1}/3`);
       }
     }
+
+    // Generate new combination for next round
+    const { data: playersData } = await supabase
+      .from("casino_players")
+      .select("*")
+      .eq("game_id", game.id);
+    
+    const nonGuesserPlayers = (playersData || []).filter((p) => p.player_index !== game.guesser_index);
+    const availableSymbols = nonGuesserPlayers.map((p) => p.symbol);
+    
+    const combinationSize = game.player_count <= 3 ? 1 : game.player_count === 4 ? 2 : 3;
+    const combination: string[] = [];
+    for (let i = 0; i < combinationSize; i++) {
+      const randomSymbol = availableSymbols[Math.floor(Math.random() * availableSymbols.length)];
+      combination.push(randomSymbol);
+    }
+
+    await supabase
+      .from("casino_games")
+      .update({
+        guesses_in_round: correct ? game.guesses_in_round : game.guesses_in_round + 1,
+        current_combination: combination,
+      })
+      .eq("id", game.id);
   };
 
   // Guesser view
