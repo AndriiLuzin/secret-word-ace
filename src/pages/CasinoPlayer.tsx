@@ -328,18 +328,24 @@ const CasinoPlayer = () => {
     }, 1000);
   };
 
-  const handleGuessResult = async (correct: boolean) => {
+  // Handler for when a regular player confirms guess result
+  const handlePlayerConfirmResult = async (correct: boolean) => {
     if (!game) return;
 
     if (correct) {
-      toast.success("Правильно! Продолжайте угадывать!");
-      setShowCombination(false);
+      // Correct guess - reset combination, guesser spins again
+      await supabase
+        .from("casino_games")
+        .update({ current_combination: [] })
+        .eq("id", game.id);
+
+      toast.success("Угадал! Угадывающий продолжает.");
     } else {
-      // Wrong guess - new round
-      const newRound = game.guesses_in_round + 1;
+      // Wrong guess - increment round counter
+      const newFailures = game.guesses_in_round + 1;
       
-      if (newRound >= 3) {
-        // After 3 failed rounds, switch guesser
+      if (newFailures >= 3) {
+        // After 3 failures, switch guesser
         const newGuesserIndex = (game.guesser_index + 1) % game.player_count;
         
         await supabase
@@ -352,20 +358,34 @@ const CasinoPlayer = () => {
           })
           .eq("id", game.id);
 
-        toast.info("Ход переходит к следующему игроку!");
+        toast.info("3 ошибки! Ход переходит к следующему игроку.");
       } else {
+        // Auto-spin for next attempt - generate new combination immediately
+        const { data: playersData } = await supabase
+          .from("casino_players")
+          .select("*")
+          .eq("game_id", game.id);
+        
+        const nonGuesserPlayers = (playersData || []).filter((p) => p.player_index !== game.guesser_index);
+        const availableSymbols = nonGuesserPlayers.map((p) => p.symbol);
+        
+        const combinationSize = game.player_count <= 3 ? 1 : game.player_count === 4 ? 2 : 3;
+        const combination: string[] = [];
+        for (let i = 0; i < combinationSize; i++) {
+          const randomSymbol = availableSymbols[Math.floor(Math.random() * availableSymbols.length)];
+          combination.push(randomSymbol);
+        }
+
         await supabase
           .from("casino_games")
           .update({
-            guesses_in_round: newRound,
-            current_combination: [],
+            guesses_in_round: newFailures,
+            current_combination: combination,
           })
           .eq("id", game.id);
 
-        toast.error(`Неправильно! Попытка ${newRound + 1}/3`);
+        toast.error(`Не угадал! Попытка ${newFailures + 1}/3 - новая комбинация!`);
       }
-      
-      setShowCombination(false);
     }
   };
 
@@ -390,7 +410,7 @@ const CasinoPlayer = () => {
             ВЫ УГАДЫВАЕТЕ
           </h1>
 
-          {!showCombination && !isSpinning && (
+          {!showCombination && !isSpinning && !game.current_combination?.length && (
             <Button
               onClick={spinSlot}
               className="w-full h-20 text-xl font-bold uppercase tracking-wider"
@@ -407,10 +427,10 @@ const CasinoPlayer = () => {
             </div>
           )}
 
-          {showCombination && game.current_combination && game.current_combination.length > 0 && (
+          {(showCombination || (game.current_combination && game.current_combination.length > 0)) && (
             <div className="space-y-8">
               <div className="flex justify-center gap-4 text-6xl">
-                {game.current_combination.map((symbol, i) => (
+                {game.current_combination?.map((symbol, i) => (
                   <span key={i} className="animate-scale-in" style={{ animationDelay: `${i * 0.1}s` }}>
                     {symbol}
                   </span>
@@ -418,24 +438,10 @@ const CasinoPlayer = () => {
               </div>
 
               <p className="text-muted-foreground">
-                Покажите на игроков с этими символами по порядку
+                Покажите на игроков с этими символами по порядку.
+                <br />
+                <span className="text-xs">Игрок, на которого вы указали, подтвердит результат.</span>
               </p>
-
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => handleGuessResult(true)}
-                  className="flex-1 h-14 text-lg font-bold bg-green-600 hover:bg-green-700"
-                >
-                  ✓ Угадал
-                </Button>
-                <Button
-                  onClick={() => handleGuessResult(false)}
-                  variant="destructive"
-                  className="flex-1 h-14 text-lg font-bold"
-                >
-                  ✗ Не угадал
-                </Button>
-              </div>
             </div>
           )}
 
@@ -451,7 +457,9 @@ const CasinoPlayer = () => {
     );
   }
 
-  // Regular player - show symbol
+  // Regular player - show symbol and confirmation buttons if there's an active combination
+  const hasCombination = game.current_combination && game.current_combination.length > 0;
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
       <Button
@@ -463,7 +471,7 @@ const CasinoPlayer = () => {
         <Home className="w-5 h-5" />
       </Button>
 
-      <div className="text-center animate-scale-in">
+      <div className="text-center animate-scale-in w-full max-w-sm">
         <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
           Твой символ
         </p>
@@ -473,11 +481,37 @@ const CasinoPlayer = () => {
           Игрок #{game.guesser_index + 1} угадывает
         </p>
 
-        <div className="mt-8 p-4 bg-secondary rounded-lg">
+        <div className="mt-4 p-4 bg-secondary rounded-lg">
           <p className="text-xs text-muted-foreground">
             Раунд {game.current_round} • Попытка {game.guesses_in_round + 1}/3
           </p>
         </div>
+
+        {hasCombination && (
+          <div className="mt-8 space-y-4 p-6 bg-primary/10 rounded-xl border border-primary/20">
+            <p className="text-foreground font-semibold">
+              На вас указал угадывающий!
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Он угадал ваш символ?
+            </p>
+            <div className="flex gap-4">
+              <Button
+                onClick={() => handlePlayerConfirmResult(true)}
+                className="flex-1 h-14 text-lg font-bold bg-green-600 hover:bg-green-700"
+              >
+                ✓ Угадал
+              </Button>
+              <Button
+                onClick={() => handlePlayerConfirmResult(false)}
+                variant="destructive"
+                className="flex-1 h-14 text-lg font-bold"
+              >
+                ✗ Не угадал
+              </Button>
+            </div>
+          </div>
+        )}
 
         <Button
           onClick={() => setIsRevealed(false)}
