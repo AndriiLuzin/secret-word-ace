@@ -1,58 +1,79 @@
 import { Link } from "react-router-dom";
 import { Users, Skull, Hand, HelpCircle, Dice5 } from "lucide-react";
-
-const games = [
-  {
-    id: "impostor",
-    title: "Самозванец",
-    description: "Найди того, кто не знает слово",
-    icon: Users,
-    path: "/impostor",
-    players: "3-20",
-  },
-  {
-    id: "mafia",
-    title: "Мафия",
-    description: "Город засыпает, просыпается мафия",
-    icon: Skull,
-    path: "/mafia",
-    players: "4-20",
-  },
-  {
-    id: "crocodile",
-    title: "Крокодил",
-    description: "Покажи слово без слов",
-    icon: Hand,
-    path: "/crocodile",
-    players: "2-20",
-  },
-  {
-    id: "whoami",
-    title: "Кто я?",
-    description: "Угадай своего персонажа",
-    icon: HelpCircle,
-    path: "/whoami",
-    players: "2-20",
-  },
-  {
-    id: "casino",
-    title: "Казино",
-    description: "Угадай комбинацию символов",
-    icon: Dice5,
-    path: "/casino",
-    players: "3-20",
-  },
-];
+import { useLanguage, languageNames, Language } from "@/lib/i18n";
+import { Button } from "@/components/ui/button";
 
 const Home = () => {
+  const { t, language, setLanguage } = useLanguage();
+
+  const games = [
+    {
+      id: "impostor",
+      title: t.impostor,
+      description: t.impostorDesc,
+      icon: Users,
+      path: "/impostor",
+      players: "3-20",
+    },
+    {
+      id: "mafia",
+      title: t.mafia,
+      description: t.mafiaDesc,
+      icon: Skull,
+      path: "/mafia",
+      players: "4-20",
+    },
+    {
+      id: "crocodile",
+      title: t.crocodile,
+      description: t.crocodileDesc,
+      icon: Hand,
+      path: "/crocodile",
+      players: "2-20",
+    },
+    {
+      id: "whoami",
+      title: t.whoami,
+      description: t.whoamiDesc,
+      icon: HelpCircle,
+      path: "/whoami",
+      players: "2-20",
+    },
+    {
+      id: "casino",
+      title: t.casino,
+      description: t.casinoDesc,
+      icon: Dice5,
+      path: "/casino",
+      players: "3-20",
+    },
+  ];
+
+  const languages: Language[] = ["ru", "en", "kk"];
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
       <div className="w-full max-w-md animate-fade-in">
+        {/* Language Selector */}
+        <div className="flex justify-center gap-2 mb-8">
+          {languages.map((lang) => (
+            <Button
+              key={lang}
+              variant={language === lang ? "default" : "outline"}
+              size="sm"
+              onClick={() => setLanguage(lang)}
+              className="min-w-[80px]"
+            >
+              {languageNames[lang]}
+            </Button>
+          ))}
+        </div>
+
         <h1 className="text-4xl font-bold tracking-tight text-foreground mb-2 text-center">
-          ИГРЫ
+          {t.games}
         </h1>
         <p className="text-muted-foreground text-sm text-center mb-12">
-          Выбери игру для компании
+          {t.chooseGame}
         </p>
 
         <div className="space-y-4">
@@ -75,7 +96,7 @@ const Home = () => {
                   </p>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {game.players} игроков
+                  {game.players} {t.players}
                 </span>
               </div>
             </Link>
@@ -84,7 +105,7 @@ const Home = () => {
 
         <div className="mt-16 text-center">
           <p className="text-xs text-muted-foreground">
-            Больше игр скоро появится
+            {t.moreGamesSoon}
           </p>
         </div>
       </div>

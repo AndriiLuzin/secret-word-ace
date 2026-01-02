@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { LanguageProvider } from "@/lib/i18n";
 import Home from "./pages/Home";
 import ImpostorCreate from "./pages/ImpostorCreate";
 import GameAdmin from "./pages/GameAdmin";
@@ -25,31 +26,33 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/impostor" element={<ImpostorCreate />} />
-          <Route path="/game/:code" element={<GameAdmin />} />
-          <Route path="/play/:code" element={<PlayerView />} />
-          <Route path="/mafia" element={<MafiaCreate />} />
-          <Route path="/mafia/:code" element={<MafiaAdmin />} />
-          <Route path="/mafia-play/:code" element={<MafiaPlayer />} />
-          <Route path="/crocodile" element={<CrocodileCreate />} />
-          <Route path="/crocodile/:code" element={<CrocodileGame />} />
-          <Route path="/crocodile-play/:code" element={<CrocodilePlayer />} />
-          <Route path="/whoami" element={<WhoAmICreate />} />
-          <Route path="/whoami/:code/admin" element={<WhoAmIGame />} />
-          <Route path="/whoami/:code/play" element={<WhoAmIPlayer />} />
-          <Route path="/casino" element={<CasinoCreate />} />
-          <Route path="/casino/:code" element={<CasinoGame />} />
-          <Route path="/casino-play/:code" element={<CasinoPlayer />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <LanguageProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/impostor" element={<ImpostorCreate />} />
+            <Route path="/game/:code" element={<GameAdmin />} />
+            <Route path="/play/:code" element={<PlayerView />} />
+            <Route path="/mafia" element={<MafiaCreate />} />
+            <Route path="/mafia/:code" element={<MafiaAdmin />} />
+            <Route path="/mafia-play/:code" element={<MafiaPlayer />} />
+            <Route path="/crocodile" element={<CrocodileCreate />} />
+            <Route path="/crocodile/:code" element={<CrocodileGame />} />
+            <Route path="/crocodile-play/:code" element={<CrocodilePlayer />} />
+            <Route path="/whoami" element={<WhoAmICreate />} />
+            <Route path="/whoami/:code/admin" element={<WhoAmIGame />} />
+            <Route path="/whoami/:code/play" element={<WhoAmIPlayer />} />
+            <Route path="/casino" element={<CasinoCreate />} />
+            <Route path="/casino/:code" element={<CasinoGame />} />
+            <Route path="/casino-play/:code" element={<CasinoPlayer />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </LanguageProvider>
   </QueryClientProvider>
 );
 

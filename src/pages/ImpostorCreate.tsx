@@ -4,11 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n";
 
-const Index = () => {
+const ImpostorCreate = () => {
   const [playerCount, setPlayerCount] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const generateCode = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -22,7 +24,7 @@ const Index = () => {
   const createGame = async () => {
     const count = parseInt(playerCount);
     if (isNaN(count) || count < 3 || count > 20) {
-      toast.error("Укажите от 3 до 20 игроков");
+      toast.error(t.specifyPlayers3to20);
       return;
     }
 
@@ -35,7 +37,7 @@ const Index = () => {
         .select("id");
 
       if (wordsError || !words?.length) {
-        throw new Error("Не удалось загрузить слова");
+        throw new Error(t.errorLoadingWords);
       }
 
       const randomWord = words[Math.floor(Math.random() * words.length)];
@@ -59,7 +61,7 @@ const Index = () => {
       navigate(`/game/${code}`);
     } catch (error) {
       console.error(error);
-      toast.error("Ошибка создания игры");
+      toast.error(t.errorCreatingGame);
     } finally {
       setIsCreating(false);
     }
@@ -69,16 +71,16 @@ const Index = () => {
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
       <div className="w-full max-w-sm animate-fade-in">
         <h1 className="text-4xl font-bold tracking-tight text-foreground mb-2 text-center">
-          САМОЗВАНЕЦ
+          {t.impostor.toUpperCase()}
         </h1>
         <p className="text-muted-foreground text-sm text-center mb-12">
-          Найди того, кто не знает слово
+          {t.impostorDesc}
         </p>
 
         <div className="space-y-6">
           <div className="space-y-2">
             <label className="text-xs uppercase tracking-wider text-muted-foreground">
-              Количество игроков
+              {t.playerCount}
             </label>
             <Input
               type="number"
@@ -96,15 +98,15 @@ const Index = () => {
             disabled={isCreating || !playerCount}
             className="w-full h-14 text-lg font-bold uppercase tracking-wider"
           >
-            {isCreating ? "Создание..." : "Создать игру"}
+            {isCreating ? t.creating : t.createGame}
           </Button>
         </div>
 
         <div className="mt-16 text-center">
           <p className="text-xs text-muted-foreground">
-            Один из игроков — самозванец.
+            {t.impostorCreateHint1}
             <br />
-            Он не знает секретное слово.
+            {t.impostorCreateHint2}
           </p>
         </div>
       </div>
@@ -112,4 +114,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default ImpostorCreate;

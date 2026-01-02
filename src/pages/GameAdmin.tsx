@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { playNotificationSound } from "@/lib/audio";
 import { Home } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 interface Game {
   id: string;
@@ -25,6 +26,7 @@ interface PlayerView {
 const GameAdmin = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [game, setGame] = useState<Game | null>(null);
   const [word, setWord] = useState<string | null>(null);
   const [views, setViews] = useState<PlayerView[]>([]);
@@ -46,7 +48,7 @@ const GameAdmin = () => {
         .maybeSingle();
 
       if (error || !gameData) {
-        toast.error("Игра не найдена");
+        toast.error(t.gameNotFound);
         navigate("/");
         return;
       }
@@ -175,7 +177,7 @@ const GameAdmin = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [code, navigate, game?.id, game?.player_count, game?.word_id]);
+  }, [code, navigate, game?.id, game?.player_count, game?.word_id, t]);
 
   const startNewRound = async () => {
     if (!game) return;
@@ -209,16 +211,16 @@ const GameAdmin = () => {
       setStartingPlayer(null);
       setGame({ ...game, word_id: randomWord.id, impostor_index: newImpostorIndex });
       
-      toast.success("Новый раунд начат!");
+      toast.success(t.newRound + "!");
     } catch (error) {
-      toast.error("Ошибка");
+      toast.error(t.error);
     }
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Загрузка...</div>
+        <div className="text-muted-foreground">{t.loading}</div>
       </div>
     );
   }
@@ -243,32 +245,20 @@ const GameAdmin = () => {
         </Button>
         <div className="text-center animate-scale-in">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-            {isAdminImpostor ? "Твоя роль" : "Секретное слово"}
+            {isAdminImpostor ? t.yourRole : t.secretWord}
           </p>
           <h1 className="text-4xl font-bold text-foreground">
-            {isAdminImpostor ? "САМОЗВАНЕЦ" : word}
+            {isAdminImpostor ? t.impostorRole : word}
           </h1>
           <p className="text-muted-foreground text-sm mt-6">
-            {isAdminImpostor ? (
-              <>
-                Ты не знаешь слово.
-                <br />
-                Притворяйся, что знаешь.
-              </>
-            ) : (
-              <>
-                Один из игроков — самозванец.
-                <br />
-                Он не знает это слово.
-              </>
-            )}
+            {isAdminImpostor ? t.impostorHint : t.playerHint}
           </p>
 
           {startingPlayer !== null && (
             <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-lg">
-              <p className="text-sm text-muted-foreground">Первым начинает</p>
+              <p className="text-sm text-muted-foreground">{t.startsFirst}</p>
               <p className="text-2xl font-bold text-primary">
-                Игрок #{startingPlayer + 1}
+                {t.player} #{startingPlayer + 1}
               </p>
             </div>
           )}
@@ -278,7 +268,7 @@ const GameAdmin = () => {
             variant="outline"
             className="mt-12"
           >
-            Скрыть
+            {t.hide}
           </Button>
 
           <Button
@@ -286,7 +276,7 @@ const GameAdmin = () => {
             variant="outline"
             className="w-full mt-4 h-12 font-bold uppercase tracking-wider"
           >
-            Новый раунд
+            {t.newRound}
           </Button>
         </div>
       </div>
@@ -307,25 +297,13 @@ const GameAdmin = () => {
         </Button>
         <div className="text-center animate-scale-in">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-            {isAdminImpostor ? "Твоя роль" : "Секретное слово"}
+            {isAdminImpostor ? t.yourRole : t.secretWord}
           </p>
           <h1 className="text-4xl font-bold text-foreground">
-            {isAdminImpostor ? "САМОЗВАНЕЦ" : word}
+            {isAdminImpostor ? t.impostorRole : word}
           </h1>
           <p className="text-muted-foreground text-sm mt-6">
-            {isAdminImpostor ? (
-              <>
-                Ты не знаешь слово.
-                <br />
-                Притворяйся, что знаешь.
-              </>
-            ) : (
-              <>
-                Один из игроков — самозванец.
-                <br />
-                Он не знает это слово.
-              </>
-            )}
+            {isAdminImpostor ? t.impostorHint : t.playerHint}
           </p>
 
           <Button
@@ -333,7 +311,7 @@ const GameAdmin = () => {
             variant="outline"
             className="mt-12"
           >
-            Скрыть
+            {t.hide}
           </Button>
         </div>
       </div>
@@ -353,10 +331,10 @@ const GameAdmin = () => {
       <div className="w-full max-w-sm animate-fade-in">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">
-            ИГРА {code}
+            {t.impostor.toUpperCase()} {code}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {views.length} / {game.player_count} игроков посмотрели
+            {views.length} / {game.player_count} {t.playersViewed}
           </p>
         </div>
 
@@ -365,7 +343,7 @@ const GameAdmin = () => {
           onClick={() => setShowMyRole(true)}
           className="w-full h-14 text-lg font-bold uppercase tracking-wider mb-6"
         >
-          Показать мою роль
+          {t.showMyRole}
         </Button>
 
         <div className="bg-secondary p-6 flex items-center justify-center mb-6">
@@ -385,7 +363,7 @@ const GameAdmin = () => {
         {!allViewed && (
           <div className="text-center mb-8">
             <p className="text-sm text-muted-foreground">
-              Ожидание игроков...
+              {t.waitingForPlayers}
             </p>
           </div>
         )}
@@ -413,7 +391,7 @@ const GameAdmin = () => {
           variant="outline"
           className="w-full h-12 font-bold uppercase tracking-wider"
         >
-          Новый раунд
+          {t.newRound}
         </Button>
 
         <Button
@@ -421,7 +399,7 @@ const GameAdmin = () => {
           variant="ghost"
           className="w-full mt-4 text-muted-foreground"
         >
-          Новая игра
+          {t.newGame}
         </Button>
       </div>
     </div>
