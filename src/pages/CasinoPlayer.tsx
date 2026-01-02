@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Home } from "lucide-react";
+import { Home, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 const CASINO_SYMBOLS = ["🍒", "🍋", "🍊", "🍇", "⭐", "🔔", "7️⃣", "💎"];
 
@@ -33,6 +34,9 @@ const CasinoPlayer = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [showCombination, setShowCombination] = useState(false);
+  const [allPlayers, setAllPlayers] = useState<CasinoPlayer[]>([]);
 
   const assignPlayer = useCallback(async (gameData: CasinoGame) => {
     // Check existing players
@@ -273,6 +277,94 @@ const CasinoPlayer = () => {
     );
   }
 
+  // Spin slot function for guesser
+  const spinSlot = async () => {
+    if (!game) return;
+    
+    setIsSpinning(true);
+    
+    // Fetch all players to get their symbols
+    const { data: playersData } = await supabase
+      .from("casino_players")
+      .select("*")
+      .eq("game_id", game.id);
+    
+    if (playersData) {
+      setAllPlayers(playersData);
+    }
+    
+    // Get symbols from non-guesser players
+    const nonGuesserPlayers = (playersData || []).filter((p) => p.player_index !== game.guesser_index);
+    const availableSymbols = nonGuesserPlayers.map((p) => p.symbol);
+    
+    if (availableSymbols.length === 0) {
+      toast.error("Нет доступных символов");
+      setIsSpinning(false);
+      return;
+    }
+    
+    // Generate combination of 3 symbols (can repeat)
+    const combination: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const randomSymbol = availableSymbols[Math.floor(Math.random() * availableSymbols.length)];
+      combination.push(randomSymbol);
+    }
+
+    // Save combination to database
+    await supabase
+      .from("casino_games")
+      .update({ current_combination: combination })
+      .eq("id", game.id);
+
+    setGame({ ...game, current_combination: combination });
+    
+    setTimeout(() => {
+      setIsSpinning(false);
+      setShowCombination(true);
+    }, 1000);
+  };
+
+  const handleGuessResult = async (correct: boolean) => {
+    if (!game) return;
+
+    if (correct) {
+      toast.success("Правильно! Продолжайте угадывать!");
+      setShowCombination(false);
+    } else {
+      // Wrong guess - new round
+      const newRound = game.guesses_in_round + 1;
+      
+      if (newRound >= 3) {
+        // After 3 failed rounds, switch guesser
+        const newGuesserIndex = (game.guesser_index + 1) % game.player_count;
+        
+        await supabase
+          .from("casino_games")
+          .update({
+            guesser_index: newGuesserIndex,
+            guesses_in_round: 0,
+            current_combination: [],
+            current_round: game.current_round + 1,
+          })
+          .eq("id", game.id);
+
+        toast.info("Ход переходит к следующему игроку!");
+      } else {
+        await supabase
+          .from("casino_games")
+          .update({
+            guesses_in_round: newRound,
+            current_combination: [],
+          })
+          .eq("id", game.id);
+
+        toast.error(`Неправильно! Попытка ${newRound + 1}/3`);
+      }
+      
+      setShowCombination(false);
+    }
+  };
+
   // Guesser view
   if (isGuesser) {
     return (
@@ -286,24 +378,62 @@ const CasinoPlayer = () => {
           <Home className="w-5 h-5" />
         </Button>
 
-        <div className="text-center animate-scale-in">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-            Твоя роль
+        <div className="w-full max-w-sm text-center animate-scale-in">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+            Раунд {game.current_round} • Попытка {game.guesses_in_round + 1}/3
           </p>
-          <h1 className="text-4xl font-bold text-foreground mb-4">
-            УГАДЫВАЮЩИЙ
+          <h1 className="text-2xl font-bold text-foreground mb-8">
+            ВЫ УГАДЫВАЕТЕ
           </h1>
-          <p className="text-muted-foreground text-sm mb-8">
-            Крути автомат на телефоне организатора
-            <br />
-            и показывай на игроков с символами
-          </p>
 
-          <div className="p-4 bg-secondary rounded-lg">
-            <p className="text-xs text-muted-foreground">
-              Раунд {game.current_round} • Попытка {game.guesses_in_round + 1}/3
-            </p>
-          </div>
+          {!showCombination && !isSpinning && (
+            <Button
+              onClick={spinSlot}
+              className="w-full h-20 text-xl font-bold uppercase tracking-wider"
+            >
+              🎰 Крутить рулетку
+            </Button>
+          )}
+
+          {isSpinning && (
+            <div className="flex justify-center gap-4 text-6xl animate-pulse">
+              <span>❓</span>
+              <span>❓</span>
+              <span>❓</span>
+            </div>
+          )}
+
+          {showCombination && game.current_combination && game.current_combination.length > 0 && (
+            <div className="space-y-8">
+              <div className="flex justify-center gap-4 text-6xl">
+                {game.current_combination.map((symbol, i) => (
+                  <span key={i} className="animate-scale-in" style={{ animationDelay: `${i * 0.1}s` }}>
+                    {symbol}
+                  </span>
+                ))}
+              </div>
+
+              <p className="text-muted-foreground">
+                Покажите на игроков с этими символами по порядку
+              </p>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => handleGuessResult(true)}
+                  className="flex-1 h-14 text-lg font-bold bg-green-600 hover:bg-green-700"
+                >
+                  ✓ Угадал
+                </Button>
+                <Button
+                  onClick={() => handleGuessResult(false)}
+                  variant="destructive"
+                  className="flex-1 h-14 text-lg font-bold"
+                >
+                  ✗ Не угадал
+                </Button>
+              </div>
+            </div>
+          )}
 
           <Button
             onClick={() => setIsRevealed(false)}
