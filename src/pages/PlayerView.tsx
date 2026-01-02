@@ -3,6 +3,7 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 interface Game {
   id: string;
@@ -17,6 +18,7 @@ const PlayerView = () => {
   const { code } = useParams<{ code: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [game, setGame] = useState<Game | null>(null);
   const [word, setWord] = useState<string | null>(null);
   const [isImpostor, setIsImpostor] = useState(false);
@@ -35,7 +37,7 @@ const PlayerView = () => {
     const usedIndices = existingViews?.map((v) => v.player_index) || [];
 
     if (usedIndices.length >= gameData.player_count) {
-      setError("Все места заняты");
+      setError(t.allSlotsTaken);
       setIsLoading(false);
       return null;
     }
@@ -50,7 +52,7 @@ const PlayerView = () => {
     }
 
     if (availableIndex === -1) {
-      setError("Все места заняты");
+      setError(t.allSlotsTaken);
       setIsLoading(false);
       return null;
     }
@@ -65,7 +67,7 @@ const PlayerView = () => {
 
     if (insertError) {
       console.error(insertError);
-      setError("Ошибка регистрации");
+      setError(t.registrationError);
       setIsLoading(false);
       return null;
     }
@@ -73,7 +75,7 @@ const PlayerView = () => {
     // Save to URL
     setSearchParams({ p: String(availableIndex) });
     return availableIndex;
-  }, [setSearchParams]);
+  }, [setSearchParams, t]);
 
   const fetchRole = useCallback(async (gameData: Game, idx: number) => {
     setPlayerIndex(idx);
@@ -106,7 +108,7 @@ const PlayerView = () => {
         .maybeSingle();
 
       if (gameError || !gameData) {
-        setError("Игра не найдена");
+        setError(t.gameNotFound);
         setIsLoading(false);
         return;
       }
@@ -140,7 +142,7 @@ const PlayerView = () => {
     };
 
     init();
-  }, [code, searchParams, assignRole, fetchRole]);
+  }, [code, searchParams, assignRole, fetchRole, t]);
 
   // Listen for new round
   useEffect(() => {
@@ -198,7 +200,7 @@ const PlayerView = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground animate-pulse">Загрузка...</div>
+        <div className="text-muted-foreground animate-pulse">{t.loading}</div>
       </div>
     );
   }
@@ -208,7 +210,7 @@ const PlayerView = () => {
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="text-center">
           <p className="text-foreground font-bold mb-2">{error}</p>
-          <p className="text-muted-foreground text-sm">Попросите ссылку у организатора</p>
+          <p className="text-muted-foreground text-sm">{t.askForLink}</p>
         </div>
       </div>
     );
@@ -227,16 +229,16 @@ const PlayerView = () => {
         </Button>
         <div className="text-center animate-fade-in">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-            Игрок #{playerIndex !== null ? playerIndex + 1 : "?"}
+            {t.player} #{playerIndex !== null ? playerIndex + 1 : "?"}
           </p>
           <Button
             onClick={() => setIsRevealed(true)}
             className="h-20 px-12 text-xl font-bold uppercase tracking-wider"
           >
-            Показать роль
+            {t.showRole}
           </Button>
           <p className="text-xs text-muted-foreground mt-6">
-            Никому не показывайте экран
+            {t.dontShowScreen}
           </p>
         </div>
       </div>
@@ -259,31 +261,19 @@ const PlayerView = () => {
         {isStartingPlayer && (
           <div className="mb-6 p-4 bg-primary/20 border border-primary/40 rounded-lg animate-pulse">
             <p className="text-2xl font-bold text-primary">
-              🎯 Вы начинаете!
+              {t.youStart}
             </p>
           </div>
         )}
         
         <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-          {isImpostor ? "Твоя роль" : "Секретное слово"}
+          {isImpostor ? t.yourRole : t.secretWord}
         </p>
         <h1 className="text-4xl font-bold text-foreground">
-          {isImpostor ? "САМОЗВАНЕЦ" : word}
+          {isImpostor ? t.impostorRole : word}
         </h1>
         <p className="text-muted-foreground text-sm mt-6">
-          {isImpostor ? (
-            <>
-              Ты не знаешь слово.
-              <br />
-              Притворяйся, что знаешь.
-            </>
-          ) : (
-            <>
-              Один из игроков — самозванец.
-              <br />
-              Он не знает это слово.
-            </>
-          )}
+          {isImpostor ? t.impostorHint : t.playerHint}
         </p>
 
         <Button
@@ -291,7 +281,7 @@ const PlayerView = () => {
           variant="outline"
           className="mt-12"
         >
-          Скрыть
+          {t.hide}
         </Button>
       </div>
     </div>
