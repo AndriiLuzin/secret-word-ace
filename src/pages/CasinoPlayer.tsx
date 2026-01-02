@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Home, RefreshCw } from "lucide-react";
+import { Home } from "lucide-react";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n";
 
 const CASINO_SYMBOLS = ["🍒", "🍋", "🍊", "🍇", "⭐", "🔔", "7️⃣", "💎"];
 
@@ -28,6 +29,7 @@ const CasinoPlayer = () => {
   const { code } = useParams<{ code: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [game, setGame] = useState<CasinoGame | null>(null);
   const [myPlayer, setMyPlayer] = useState<CasinoPlayer | null>(null);
   const [playerIndex, setPlayerIndex] = useState<number | null>(null);
@@ -36,79 +38,53 @@ const CasinoPlayer = () => {
   const [isRevealed, setIsRevealed] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
   const [showCombination, setShowCombination] = useState(false);
-  const [allPlayers, setAllPlayers] = useState<CasinoPlayer[]>([]);
 
   const assignPlayer = useCallback(async (gameData: CasinoGame) => {
-    // Check existing players
-    const { data: existingPlayers } = await supabase
-      .from("casino_players")
-      .select("*")
-      .eq("game_id", gameData.id);
-
+    const { data: existingPlayers } = await supabase.from("casino_players").select("*").eq("game_id", gameData.id);
     const usedIndices = existingPlayers?.map((p) => p.player_index) || [];
 
     if (usedIndices.length >= gameData.player_count) {
-      setError("Все места заняты");
+      setError(t.allSlotsTaken);
       setIsLoading(false);
       return null;
     }
 
-    // Find available index
     let availableIndex = -1;
     for (let i = 0; i < gameData.player_count; i++) {
-      if (!usedIndices.includes(i)) {
-        availableIndex = i;
-        break;
-      }
+      if (!usedIndices.includes(i)) { availableIndex = i; break; }
     }
 
     if (availableIndex === -1) {
-      setError("Все места заняты");
+      setError(t.allSlotsTaken);
       setIsLoading(false);
       return null;
     }
 
-    // Assign random symbol
     const usedSymbols = existingPlayers?.map((p) => p.symbol) || [];
     const availableSymbols = CASINO_SYMBOLS.filter((s) => !usedSymbols.includes(s));
     const randomSymbol = availableSymbols[Math.floor(Math.random() * availableSymbols.length)] || CASINO_SYMBOLS[availableIndex % CASINO_SYMBOLS.length];
 
-    // Register player
     const { data: newPlayer, error: insertError } = await supabase
       .from("casino_players")
-      .insert({
-        game_id: gameData.id,
-        player_index: availableIndex,
-        symbol: randomSymbol,
-      })
+      .insert({ game_id: gameData.id, player_index: availableIndex, symbol: randomSymbol })
       .select()
       .single();
 
     if (insertError) {
       console.error(insertError);
-      setError("Ошибка регистрации");
+      setError(t.registrationError);
       setIsLoading(false);
       return null;
     }
 
     setSearchParams({ p: String(availableIndex) });
     return { index: availableIndex, player: newPlayer };
-  }, [setSearchParams]);
+  }, [setSearchParams, t]);
 
   const fetchPlayer = useCallback(async (gameData: CasinoGame, idx: number) => {
     setPlayerIndex(idx);
-
-    const { data: player } = await supabase
-      .from("casino_players")
-      .select("*")
-      .eq("game_id", gameData.id)
-      .eq("player_index", idx)
-      .maybeSingle();
-
-    if (player) {
-      setMyPlayer(player);
-    }
-
+    const { data: player } = await supabase.from("casino_players").select("*").eq("game_id", gameData.id).eq("player_index", idx).maybeSingle();
+    if (player) setMyPlayer(player);
     setIsLoading(false);
   }, []);
 
@@ -116,21 +92,15 @@ const CasinoPlayer = () => {
     if (!code) return;
 
     const init = async () => {
-      const { data: gameData, error: gameError } = await supabase
-        .from("casino_games")
-        .select("*")
-        .eq("code", code)
-        .maybeSingle();
+      const { data: gameData, error: gameError } = await supabase.from("casino_games").select("*").eq("code", code).maybeSingle();
 
       if (gameError || !gameData) {
-        setError("Игра не найдена");
+        setError(t.gameNotFound);
         setIsLoading(false);
         return;
       }
 
       setGame(gameData);
-
-      // Check if already has assigned index
       const existingIndex = searchParams.get("p");
 
       if (existingIndex !== null) {
@@ -139,7 +109,6 @@ const CasinoPlayer = () => {
         return;
       }
 
-      // Assign new player
       const result = await assignPlayer(gameData);
       if (result) {
         setPlayerIndex(result.index);
@@ -149,60 +118,28 @@ const CasinoPlayer = () => {
     };
 
     init();
-  }, [code, searchParams, assignPlayer, fetchPlayer]);
+  }, [code, searchParams, assignPlayer, fetchPlayer, t]);
 
-  // Listen for game updates
   useEffect(() => {
     if (!game) return;
 
-    const channel = supabase
-      .channel(`casino-player-${code}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "casino_games",
-          filter: `id=eq.${game.id}`,
-        },
-        (payload) => {
-          setGame(payload.new as CasinoGame);
-        }
+    const channel = supabase.channel(`casino-player-${code}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "casino_games", filter: `id=eq.${game.id}` },
+        (payload) => { setGame(payload.new as CasinoGame); }
       )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "casino_players",
-        },
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "casino_players" },
         async () => {
           if (playerIndex === null) return;
-          const { data: player } = await supabase
-            .from("casino_players")
-            .select("*")
-            .eq("game_id", game.id)
-            .eq("player_index", playerIndex)
-            .maybeSingle();
-
-          if (player) {
-            setMyPlayer(player);
-          }
+          const { data: player } = await supabase.from("casino_players").select("*").eq("game_id", game.id).eq("player_index", playerIndex).maybeSingle();
+          if (player) setMyPlayer(player);
         }
-      )
-      .subscribe();
+      ).subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [game, code, playerIndex]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground animate-pulse">Загрузка...</div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center bg-background"><div className="text-muted-foreground animate-pulse">{t.loading}</div></div>;
   }
 
   if (error) {
@@ -210,7 +147,7 @@ const CasinoPlayer = () => {
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="text-center">
           <p className="text-foreground font-bold mb-2">{error}</p>
-          <p className="text-muted-foreground text-sm">Попросите ссылку у организатора</p>
+          <p className="text-muted-foreground text-sm">{t.askForLink}</p>
         </div>
       </div>
     );
@@ -220,152 +157,78 @@ const CasinoPlayer = () => {
 
   const isGuesser = game.guesser_index === playerIndex;
 
-  // Waiting for game to start
   if (game.status === "waiting") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/")}
-          className="absolute top-4 left-4"
-        >
-          <Home className="w-5 h-5" />
-        </Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="absolute top-4 left-4"><Home className="w-5 h-5" /></Button>
         <div className="text-center animate-fade-in">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-            Игрок #{playerIndex !== null ? playerIndex + 1 : "?"}
-          </p>
-          <h1 className="text-2xl font-bold text-foreground mb-4">
-            КАЗИНО
-          </h1>
-          <p className="text-muted-foreground">
-            Ожидание начала игры...
-          </p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">{t.player} #{playerIndex !== null ? playerIndex + 1 : "?"}</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">{t.casino.toUpperCase()}</h1>
+          <p className="text-muted-foreground">{t.waitingForGame}</p>
         </div>
       </div>
     );
   }
 
-  // Game is active - show role
   if (!isRevealed) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/")}
-          className="absolute top-4 left-4"
-        >
-          <Home className="w-5 h-5" />
-        </Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="absolute top-4 left-4"><Home className="w-5 h-5" /></Button>
         <div className="text-center animate-fade-in">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-            Игрок #{playerIndex !== null ? playerIndex + 1 : "?"}
-          </p>
-          <Button
-            onClick={() => setIsRevealed(true)}
-            className="h-20 px-12 text-xl font-bold uppercase tracking-wider"
-          >
-            Показать роль
-          </Button>
-          <p className="text-xs text-muted-foreground mt-6">
-            Никому не показывайте экран
-          </p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">{t.player} #{playerIndex !== null ? playerIndex + 1 : "?"}</p>
+          <Button onClick={() => setIsRevealed(true)} className="h-20 px-12 text-xl font-bold uppercase tracking-wider">{t.showRole}</Button>
+          <p className="text-xs text-muted-foreground mt-6">{t.dontShowScreen}</p>
         </div>
       </div>
     );
   }
 
-  // Spin slot function for guesser
   const spinSlot = async () => {
     if (!game) return;
-    
     setIsSpinning(true);
     
-    // Fetch all players to get their symbols
-    const { data: playersData } = await supabase
-      .from("casino_players")
-      .select("*")
-      .eq("game_id", game.id);
-    
-    if (playersData) {
-      setAllPlayers(playersData);
-    }
-    
-    // Get symbols from non-guesser players
+    const { data: playersData } = await supabase.from("casino_players").select("*").eq("game_id", game.id);
     const nonGuesserPlayers = (playersData || []).filter((p) => p.player_index !== game.guesser_index);
     const availableSymbols = nonGuesserPlayers.map((p) => p.symbol);
     
     if (availableSymbols.length === 0) {
-      toast.error("Нет доступных символов");
+      toast.error(t.noAvailableSymbols);
       setIsSpinning(false);
       return;
     }
     
-    // Determine combination size based on player count
-    // 3 players = 1 symbol, 4 players = 2 symbols, 5+ players = 3 symbols
     const combinationSize = game.player_count <= 3 ? 1 : game.player_count === 4 ? 2 : 3;
-    
-    // Generate combination
     const combination: string[] = [];
     for (let i = 0; i < combinationSize; i++) {
       const randomSymbol = availableSymbols[Math.floor(Math.random() * availableSymbols.length)];
       combination.push(randomSymbol);
     }
 
-    // Save combination to database
-    await supabase
-      .from("casino_games")
-      .update({ current_combination: combination })
-      .eq("id", game.id);
-
+    await supabase.from("casino_games").update({ current_combination: combination }).eq("id", game.id);
     setGame({ ...game, current_combination: combination });
     
-    setTimeout(() => {
-      setIsSpinning(false);
-      setShowCombination(true);
-    }, 1000);
+    setTimeout(() => { setIsSpinning(false); setShowCombination(true); }, 1000);
   };
 
-  // Handler for when a regular player confirms guess result - always restarts round
   const handlePlayerConfirmResult = async (correct: boolean) => {
     if (!game) return;
 
     if (correct) {
-      // Correct guess - guesser continues, new combination
-      toast.success("Угадал! Новый раунд.");
+      toast.success(t.guessedNewCombination);
     } else {
-      // Wrong guess - increment failure counter
       const newFailures = game.guesses_in_round + 1;
       
       if (newFailures >= 3) {
-        // After 3 failures, switch guesser
         const newGuesserIndex = (game.guesser_index + 1) % game.player_count;
-        
-        await supabase
-          .from("casino_games")
-          .update({
-            guesser_index: newGuesserIndex,
-            guesses_in_round: 0,
-            current_combination: [],
-            current_round: game.current_round + 1,
-          })
-          .eq("id", game.id);
-
-        toast.info("3 ошибки! Ход переходит к следующему игроку.");
+        await supabase.from("casino_games").update({ guesser_index: newGuesserIndex, guesses_in_round: 0, current_combination: [], current_round: game.current_round + 1 }).eq("id", game.id);
+        toast.info(t.threeErrorsTurnPasses);
         return;
       } else {
-        toast.error(`Не угадал! Попытка ${newFailures + 1}/3`);
+        toast.error(`${t.wrongGuess} ${t.attempt} ${newFailures + 1}/3`);
       }
     }
 
-    // Generate new combination for next round
-    const { data: playersData } = await supabase
-      .from("casino_players")
-      .select("*")
-      .eq("game_id", game.id);
-    
+    const { data: playersData } = await supabase.from("casino_players").select("*").eq("game_id", game.id);
     const nonGuesserPlayers = (playersData || []).filter((p) => p.player_index !== game.guesser_index);
     const availableSymbols = nonGuesserPlayers.map((p) => p.symbol);
     
@@ -376,146 +239,70 @@ const CasinoPlayer = () => {
       combination.push(randomSymbol);
     }
 
-    await supabase
-      .from("casino_games")
-      .update({
-        guesses_in_round: correct ? game.guesses_in_round : game.guesses_in_round + 1,
-        current_combination: combination,
-      })
-      .eq("id", game.id);
+    await supabase.from("casino_games").update({ guesses_in_round: correct ? game.guesses_in_round : game.guesses_in_round + 1, current_combination: combination }).eq("id", game.id);
   };
 
-  // Guesser view
   if (isGuesser) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/")}
-          className="absolute top-4 left-4"
-        >
-          <Home className="w-5 h-5" />
-        </Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="absolute top-4 left-4"><Home className="w-5 h-5" /></Button>
 
         <div className="w-full max-w-sm text-center animate-scale-in">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-            Раунд {game.current_round} • Попытка {game.guesses_in_round + 1}/3
-          </p>
-          <h1 className="text-2xl font-bold text-foreground mb-8">
-            ВЫ УГАДЫВАЕТЕ
-          </h1>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{t.round} {game.current_round} • {t.attempt} {game.guesses_in_round + 1}/3</p>
+          <h1 className="text-2xl font-bold text-foreground mb-8">{t.youAreGuessing}</h1>
 
           {!showCombination && !isSpinning && !game.current_combination?.length && (
-            <Button
-              onClick={spinSlot}
-              className="w-full h-20 text-xl font-bold uppercase tracking-wider"
-            >
-              🎰 Крутить рулетку
-            </Button>
+            <Button onClick={spinSlot} className="w-full h-20 text-xl font-bold uppercase tracking-wider">{t.spinRoulette}</Button>
           )}
 
           {isSpinning && (
-            <div className="flex justify-center gap-4 text-6xl animate-pulse">
-              <span>❓</span>
-              <span>❓</span>
-              <span>❓</span>
-            </div>
+            <div className="flex justify-center gap-4 text-6xl animate-pulse"><span>❓</span><span>❓</span><span>❓</span></div>
           )}
 
           {(showCombination || (game.current_combination && game.current_combination.length > 0)) && (
             <div className="space-y-8">
               <div className="flex justify-center gap-4 text-6xl">
                 {game.current_combination?.map((symbol, i) => (
-                  <span key={i} className="animate-scale-in" style={{ animationDelay: `${i * 0.1}s` }}>
-                    {symbol}
-                  </span>
+                  <span key={i} className="animate-scale-in" style={{ animationDelay: `${i * 0.1}s` }}>{symbol}</span>
                 ))}
               </div>
-
-              <p className="text-muted-foreground">
-                Покажите на игроков с этими символами по порядку.
-                <br />
-                <span className="text-xs">Игрок, на которого вы указали, подтвердит результат.</span>
-              </p>
+              <p className="text-muted-foreground">{t.pointToPlayers}<br /><span className="text-xs">{t.playerConfirmsResult}</span></p>
             </div>
           )}
 
-          <Button
-            onClick={() => setIsRevealed(false)}
-            variant="outline"
-            className="mt-8"
-          >
-            Скрыть
-          </Button>
+          <Button onClick={() => setIsRevealed(false)} variant="outline" className="mt-8">{t.hide}</Button>
         </div>
       </div>
     );
   }
 
-  // Regular player - show symbol and confirmation buttons if there's an active combination
   const hasCombination = game.current_combination && game.current_combination.length > 0;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => navigate("/")}
-        className="absolute top-4 left-4"
-      >
-        <Home className="w-5 h-5" />
-      </Button>
+      <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="absolute top-4 left-4"><Home className="w-5 h-5" /></Button>
 
       <div className="text-center animate-scale-in w-full max-w-sm">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-          Твой символ
-        </p>
+        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">{t.yourSymbol}</p>
         <div className="text-8xl mb-8">{myPlayer.symbol}</div>
-        
-        <p className="text-muted-foreground text-sm">
-          Игрок #{game.guesser_index + 1} угадывает
-        </p>
+        <p className="text-muted-foreground text-sm">{t.player} #{game.guesser_index + 1} {t.youAreGuessing.toLowerCase()}</p>
 
         <div className="mt-4 p-4 bg-secondary rounded-lg">
-          <p className="text-xs text-muted-foreground">
-            Раунд {game.current_round} • Попытка {game.guesses_in_round + 1}/3
-          </p>
+          <p className="text-xs text-muted-foreground">{t.round} {game.current_round} • {t.attempt} {game.guesses_in_round + 1}/3</p>
         </div>
 
         {hasCombination && (
           <div className="mt-8 space-y-4 p-6 bg-primary/10 rounded-xl border border-primary/20">
-            <p className="text-foreground font-semibold">
-              На вас указал угадывающий!
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Он угадал ваш символ?
-            </p>
+            <p className="text-foreground font-semibold">{t.playerPointedAtYou}</p>
+            <p className="text-sm text-muted-foreground">{t.didHeGuessSymbol}</p>
             <div className="flex gap-4">
-              <Button
-                onClick={() => handlePlayerConfirmResult(true)}
-                className="flex-1 h-14 text-lg font-bold bg-green-600 hover:bg-green-700"
-              >
-                ✓ Угадал
-              </Button>
-              <Button
-                onClick={() => handlePlayerConfirmResult(false)}
-                variant="destructive"
-                className="flex-1 h-14 text-lg font-bold"
-              >
-                ✗ Не угадал
-              </Button>
+              <Button onClick={() => handlePlayerConfirmResult(true)} className="flex-1 h-14 text-lg font-bold bg-green-600 hover:bg-green-700">✓ {t.correct}</Button>
+              <Button onClick={() => handlePlayerConfirmResult(false)} variant="destructive" className="flex-1 h-14 text-lg font-bold">✗ {t.incorrect}</Button>
             </div>
           </div>
         )}
 
-        <Button
-          onClick={() => setIsRevealed(false)}
-          variant="outline"
-          className="mt-8"
-        >
-          Скрыть
-        </Button>
+        <Button onClick={() => setIsRevealed(false)} variant="outline" className="mt-8">{t.hide}</Button>
       </div>
     </div>
   );
